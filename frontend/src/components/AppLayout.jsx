@@ -3,7 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../AuthContext.jsx';
 
-const navLinks = [
+const baseLinks = [
   { to: '/', label: 'Главная' },
   { to: '/courses', label: 'Курсы' },
   { to: '/profile', label: 'Профиль' },
@@ -87,7 +87,12 @@ export default function AppLayout({ children }) {
           </div>
         </div>
         <nav className="app-shell__nav">
-          {navLinks.map((link) => {
+          {[
+            ...baseLinks,
+            ...(sidebarUser?.is_staff
+              ? [{ to: '/admin/courses/new', label: 'Создать курс' }]
+              : []),
+          ].map((link) => {
             const isActive =
               location.pathname === link.to ||
               (link.to !== '/' && location.pathname.startsWith(link.to));

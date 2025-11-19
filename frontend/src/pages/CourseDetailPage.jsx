@@ -4,6 +4,13 @@ import api from '../api';
 import ProgressBar from '../components/ProgressBar';
 import Loader from '../components/Loader';
 
+const toYouTubeEmbed = (url) => {
+  if (!url) return null;
+  const match = url.match(/(?:v=|\.be\/)([A-Za-z0-9_-]+)/);
+  if (!match) return null;
+  return `https://www.youtube.com/embed/${match[1]}`;
+};
+
 export default function CourseDetailPage() {
   const { id } = useParams();
   const [course, setCourse] = useState(null);
@@ -74,6 +81,30 @@ export default function CourseDetailPage() {
     }
   };
 
+  const renderVideo = (url) => {
+    if (!url) return null;
+    const embed = toYouTubeEmbed(url);
+    if (embed) {
+      return (
+        <div className="video-wrapper">
+          <iframe
+            src={embed}
+            title="Видео урок"
+            width="100%"
+            height="360"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      );
+    }
+    return (
+      <div className="video-wrapper">
+        <video src={url} controls width="100%" />
+      </div>
+    );
+  };
+
   if (loading || !course) {
     return (
       <div className="page">
@@ -94,6 +125,25 @@ export default function CourseDetailPage() {
           Назад
         </Link>
       </header>
+
+      <section className="card course-hero">
+        <div className="course-hero__image">
+          {course.image_url ? (
+            <img src={course.image_url} alt={course.title} />
+          ) : (
+            <div className="course-card__placeholder">
+              <span role="img" aria-label="course hero">
+                🎯
+              </span>
+            </div>
+          )}
+        </div>
+        <div>
+          <p className="eyebrow">О курсе</p>
+          <h2>{course.title}</h2>
+          <p className="muted">{course.description}</p>
+        </div>
+      </section>
 
       <section className="card">
         <div className="card__header">
@@ -186,11 +236,12 @@ export default function CourseDetailPage() {
                 <div>
                   <h3>{lesson.title}</h3>
                   <p className="muted">{lesson.content}</p>
-                  {lesson.video_url && (
-                    <div className="video-wrapper">
-                      <video src={lesson.video_url} controls width="100%" />
+                  {lesson.image_url && (
+                    <div className="lesson-image">
+                      <img src={lesson.image_url} alt={lesson.title} />
                     </div>
                   )}
+                  {lesson.video_url && renderVideo(lesson.video_url)}
                 </div>
                 <button className="btn" onClick={() => handleToggleLesson(lesson.id, isCompleted)}>
                   {isCompleted ? 'Вернуть в план' : 'Отметить как пройдено'}

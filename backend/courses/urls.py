@@ -18,6 +18,7 @@ from .views import (
     QuizSubmitView,
     AchievementListView,
     RecommendedCourseListView,
+    CourseManageView,
 )
 
 
@@ -45,4 +46,5 @@ urlpatterns = [
 
     # Recommended courses
     path('recommended/', RecommendedCourseListView.as_view(), name='recommended-courses'),
+    path('manage/', CourseManageView.as_view(), name='course-manage'),
 ]

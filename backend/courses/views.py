@@ -35,6 +35,7 @@ from .serializers import (
     ActivityLogSerializer,
     QuizSerializer,
     AchievementSerializer,
+    CourseManageSerializer,
 )
 
 # Utility function for awarding achievements
@@ -366,3 +367,10 @@ class RecommendedCourseListView(generics.ListAPIView):
         if role:
             queryset = queryset.filter(role=role)
         return queryset.order_by('id')[:5]
+
+
+class CourseManageView(generics.CreateAPIView):
+    """Allow staff members to create courses along with lessons."""
+
+    serializer_class = CourseManageSerializer
+    permission_classes = [permissions.IsAdminUser]

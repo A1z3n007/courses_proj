@@ -20,8 +20,8 @@ class Course(models.Model):
 
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
+    image_url = models.URLField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    # Optional role category for filtering (e.g. welder, manager, seller)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='welder')
 
     def __str__(self) -> str:
@@ -38,6 +38,7 @@ class Lesson(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField(blank=True)
     video_url = models.URLField(blank=True)
+    image_url = models.URLField(blank=True)
     order = models.PositiveIntegerField(default=0)
 
     class Meta:

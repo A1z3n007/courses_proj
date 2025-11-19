@@ -304,15 +304,28 @@ export default function DashboardPage() {
           ) : (
             <ul className="list list--gap">
               {recommended.map((course) => (
-                <li key={course.id} className="card card--inline">
-                  <div>
+                <li key={course.id} className="card course-card">
+                  <div className="recommended-card__media">
+                    {course.image_url ? (
+                      <img src={course.image_url} alt={course.title} />
+                    ) : (
+                      <div className="course-card__placeholder">
+                        <span role="img" aria-label="course">
+                          💡
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="course-card__body">
                     <h3>{course.title}</h3>
                     <p className="muted">{course.description}</p>
                     <span className="tag tag--ghost">{course.role}</span>
                   </div>
-                  <Link className="btn btn--secondary" to={`/courses/${course.id}`}>
-                    Открыть
-                  </Link>
+                  <div className="course-card__actions">
+                    <Link className="btn btn--secondary" to={`/courses/${course.id}`}>
+                      Открыть
+                    </Link>
+                  </div>
                 </li>
               ))}
             </ul>

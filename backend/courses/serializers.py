@@ -27,7 +27,13 @@ class LessonSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Lesson
-        fields = ['id', 'title', 'content', 'video_url', 'order']
+        fields = ['id', 'title', 'content', 'video_url', 'image_url', 'order']
+
+
+class LessonWriteSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Lesson
+        fields = ['title', 'content', 'video_url', 'image_url', 'order']
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -35,7 +41,7 @@ class CourseSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Course
-        fields = ['id', 'title', 'description', 'role']
+        fields = ['id', 'title', 'description', 'role', 'image_url']
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
@@ -46,7 +52,16 @@ class CourseDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Course
-        fields = ['id', 'title', 'description', 'role', 'lessons', 'average_rating', 'has_quiz']
+        fields = [
+            'id',
+            'title',
+            'description',
+            'role',
+            'image_url',
+            'lessons',
+            'average_rating',
+            'has_quiz',
+        ]
 
     def get_average_rating(self, obj) -> float:
         # Calculate the average rating for the course. If no reviews, return None.
@@ -78,6 +93,28 @@ class ProgressSerializer(serializers.ModelSerializer):
 
     def get_progress(self, obj) -> float:
         return obj.progress_percentage()
+
+
+class CourseManageSerializer(serializers.ModelSerializer):
+    lessons = LessonWriteSerializer(many=True, required=False)
+
+    class Meta:
+        model = Course
+        fields = ['id', 'title', 'description', 'role', 'image_url', 'lessons']
+
+    def create(self, validated_data):
+        lessons_data = validated_data.pop('lessons', [])
+        course = Course.objects.create(**validated_data)
+        for index, lesson_data in enumerate(lessons_data, start=1):
+            Lesson.objects.create(
+                course=course,
+                order=lesson_data.get('order', index),
+                title=lesson_data.get('title', f'Урок {index}'),
+                content=lesson_data.get('content', ''),
+                video_url=lesson_data.get('video_url', ''),
+                image_url=lesson_data.get('image_url', ''),
+            )
+        return course
 
 
 class CourseReviewSerializer(serializers.ModelSerializer):

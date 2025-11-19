@@ -4,9 +4,9 @@ import api from '../api';
 import Loader from '../components/Loader';
 
 const statusMap = {
-  not_started: 'Ещё не начат',
+  not_started: 'Не начат',
   in_progress: 'В процессе',
-  completed: 'Завершён',
+  completed: 'Пройден',
 };
 
 const roleLabels = {
@@ -46,8 +46,8 @@ export default function CourseListPage() {
       try {
         const resp = await api.get('/courses/progress/');
         setProgresses(resp.data);
-      } catch (err) {
-        // ignore
+      } catch {
+        /* ignore */
       }
     }
     fetchProgress();
@@ -65,6 +65,19 @@ export default function CourseListPage() {
     return getStatus(course.id) === selectedStatus;
   });
 
+  const renderMedia = (course) => {
+    if (!course.image_url) {
+      return (
+        <div className="course-card__placeholder">
+          <span role="img" aria-label="course">
+            🎓
+          </span>
+        </div>
+      );
+    }
+    return <img src={course.image_url} alt={course.title} />;
+  };
+
   return (
     <div className="page">
       <header className="page-header">
@@ -72,7 +85,7 @@ export default function CourseListPage() {
           <p className="eyebrow">Каталог</p>
           <h1>Курсы для интеграции</h1>
           <p className="muted">
-            Выберите программу под вашу роль, чтобы быстрее пройти адаптацию.
+            Подберите программу под свою роль, чтобы быстрее завершить онбординг.
           </p>
         </div>
         <Link to="/" className="btn btn--ghost">
@@ -104,7 +117,7 @@ export default function CourseListPage() {
             onChange={(e) => setSelectedStatus(e.target.value)}
           >
             <option value="all">Все статусы</option>
-            <option value="not_started">Ещё не начаты</option>
+            <option value="not_started">Не начаты</option>
             <option value="in_progress">В процессе</option>
             <option value="completed">Завершены</option>
           </select>
@@ -116,20 +129,21 @@ export default function CourseListPage() {
         ) : (
           <div className="list list--gap">
             {filteredCourses.map((course) => (
-              <div key={course.id} className="card card--inline">
-                <div>
+              <div key={course.id} className="card course-card">
+                <div className="course-card__media">{renderMedia(course)}</div>
+                <div className="course-card__body">
                   <h3>{course.title}</h3>
                   <p className="muted">{course.description}</p>
                   <div className="chip-row">
-                    <span className="tag tag--ghost">
-                      {roleLabels[course.role] || course.role}
-                    </span>
+                    <span className="tag tag--ghost">{roleLabels[course.role] || course.role}</span>
                     <span className="tag">{statusMap[getStatus(course.id)]}</span>
                   </div>
                 </div>
-                <Link className="btn btn--secondary" to={`/courses/${course.id}`}>
-                  Перейти
-                </Link>
+                <div className="course-card__actions">
+                  <Link className="btn btn--secondary" to={`/courses/${course.id}`}>
+                    Подробнее
+                  </Link>
+                </div>
               </div>
             ))}
           </div>

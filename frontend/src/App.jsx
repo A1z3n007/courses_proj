@@ -9,6 +9,7 @@ import CourseDetailPage from './pages/CourseDetailPage';
 import ProfilePage from './pages/ProfilePage';
 import AdminPage from './pages/AdminPage';
 import QuizPage from './pages/QuizPage';
+import CourseBuilderPage from './pages/CourseBuilderPage.jsx';
 import AppLayout from './components/AppLayout.jsx';
 import { useAuth } from './AuthContext.jsx';
 
@@ -70,6 +71,14 @@ function App() {
         element={
           <PrivateRoute>
             <AdminPage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/admin/courses/new"
+        element={
+          <PrivateRoute>
+            <CourseBuilderPage />
           </PrivateRoute>
         }
       />
