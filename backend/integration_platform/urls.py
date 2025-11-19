@@ -11,6 +11,11 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
+admin.site.site_header = 'Админ-панель Integration Hub'
+admin.site.site_title = 'Integration Hub'
+admin.site.index_title = 'Управление обучением'
+admin.site.enable_nav_sidebar = False
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),

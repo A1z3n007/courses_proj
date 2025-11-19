@@ -1,6 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
+import Loader from '../components/Loader';
+
+const statusMap = {
+  not_started: 'Ещё не начат',
+  in_progress: 'В процессе',
+  completed: 'Завершён',
+};
+
+const roleLabels = {
+  welder: 'Сварщик',
+  manager: 'Менеджер',
+  seller: 'Продавец',
+};
 
 export default function CourseListPage() {
   const [courses, setCourses] = useState([]);
@@ -8,10 +21,11 @@ export default function CourseListPage() {
   const [selectedRole, setSelectedRole] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
   const [progresses, setProgresses] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Fetch courses when filters change
   useEffect(() => {
     async function fetchCourses() {
+      setLoading(true);
       try {
         const params = {};
         if (searchTerm) params.search = searchTerm;
@@ -20,25 +34,25 @@ export default function CourseListPage() {
         setCourses(resp.data);
       } catch (err) {
         console.error(err);
+      } finally {
+        setLoading(false);
       }
     }
     fetchCourses();
   }, [searchTerm, selectedRole]);
 
-  // Fetch progress once when the component mounts
   useEffect(() => {
     async function fetchProgress() {
       try {
         const resp = await api.get('/courses/progress/');
         setProgresses(resp.data);
       } catch (err) {
-        // ignore if not logged in or error
+        // ignore
       }
     }
     fetchProgress();
   }, []);
 
-  // Determine status for each course based on progress data
   const getStatus = (courseId) => {
     const record = progresses.find((p) => p.course.id === courseId);
     if (!record) return 'not_started';
@@ -46,57 +60,81 @@ export default function CourseListPage() {
     return 'in_progress';
   };
 
-  // Filter courses based on selectedStatus
   const filteredCourses = courses.filter((course) => {
     if (selectedStatus === 'all') return true;
     return getStatus(course.id) === selectedStatus;
   });
 
   return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto' }}>
-      <h2>Available Courses</h2>
-      <Link to="/">Back to Dashboard</Link>
-      {/* Filters */}
-      <div style={{ margin: '1rem 0', display: 'flex', flexWrap: 'wrap', gap: '1rem' }}>
-        <input
-          type="text"
-          placeholder="Search courses..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{ flex: '1 1 200px', padding: '0.5rem' }}
-        />
-        <select
-          value={selectedRole}
-          onChange={(e) => setSelectedRole(e.target.value)}
-          style={{ padding: '0.5rem' }}
-        >
-          <option value="all">All Roles</option>
-          <option value="welder">Welder</option>
-          <option value="manager">Manager</option>
-          <option value="seller">Seller</option>
-        </select>
-        <select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
-          style={{ padding: '0.5rem' }}
-        >
-          <option value="all">All Statuses</option>
-          <option value="not_started">Not Started</option>
-          <option value="in_progress">In Progress</option>
-          <option value="completed">Completed</option>
-        </select>
-      </div>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {filteredCourses.map((course) => (
-          <li key={course.id} style={{ border: '1px solid var(--card-border)', background: 'var(--card-bg)', margin: '1rem 0', padding: '1rem', borderRadius: '4px' }}>
-            <h3>{course.title}</h3>
-            <p>{course.description}</p>
-            <p><strong>Role:</strong> {course.role}</p>
-            <p><strong>Status:</strong> {getStatus(course.id).replace('_', ' ')}</p>
-            <Link to={`/courses/${course.id}`}>View Course</Link>
-          </li>
-        ))}
-      </ul>
+    <div className="page">
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">Каталог</p>
+          <h1>Курсы для интеграции</h1>
+          <p className="muted">
+            Выберите программу под вашу роль, чтобы быстрее пройти адаптацию.
+          </p>
+        </div>
+        <Link to="/" className="btn btn--ghost">
+          На главную
+        </Link>
+      </header>
+      <section className="card">
+        <div className="filters">
+          <input
+            type="text"
+            className="input"
+            placeholder="Поиск по названию или описанию"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+          <select
+            className="select"
+            value={selectedRole}
+            onChange={(e) => setSelectedRole(e.target.value)}
+          >
+            <option value="all">Все роли</option>
+            <option value="welder">Сварщик</option>
+            <option value="manager">Менеджер</option>
+            <option value="seller">Продавец</option>
+          </select>
+          <select
+            className="select"
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+          >
+            <option value="all">Все статусы</option>
+            <option value="not_started">Ещё не начаты</option>
+            <option value="in_progress">В процессе</option>
+            <option value="completed">Завершены</option>
+          </select>
+        </div>
+        {loading ? (
+          <Loader label="Подбираем курсы..." />
+        ) : filteredCourses.length === 0 ? (
+          <p>По выбранным условиям курсов не найдено.</p>
+        ) : (
+          <div className="list list--gap">
+            {filteredCourses.map((course) => (
+              <div key={course.id} className="card card--inline">
+                <div>
+                  <h3>{course.title}</h3>
+                  <p className="muted">{course.description}</p>
+                  <div className="chip-row">
+                    <span className="tag tag--ghost">
+                      {roleLabels[course.role] || course.role}
+                    </span>
+                    <span className="tag">{statusMap[getStatus(course.id)]}</span>
+                  </div>
+                </div>
+                <Link className="btn btn--secondary" to={`/courses/${course.id}`}>
+                  Перейти
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

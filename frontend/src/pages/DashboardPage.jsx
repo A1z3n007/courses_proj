@@ -1,8 +1,8 @@
-import React, { useEffect, useState, useContext } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api';
 import ProgressBar from '../components/ProgressBar';
-import { ThemeContext } from '../ThemeContext';
+import Loader from '../components/Loader';
 
 export default function DashboardPage() {
   const [progresses, setProgresses] = useState([]);
@@ -11,187 +11,286 @@ export default function DashboardPage() {
   const [activities, setActivities] = useState([]);
   const [achievements, setAchievements] = useState([]);
   const [recommended, setRecommended] = useState([]);
-  const navigate = useNavigate();
-  const { theme, toggleTheme } = useContext(ThemeContext);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchProgress() {
+    let active = true;
+
+    async function loadDashboard() {
+      setLoading(true);
       try {
-        const resp = await api.get('/courses/progress/');
-        setProgresses(resp.data);
+        const profileResp = await api.get('/accounts/profile/');
+        if (!active) {
+          return;
+        }
+        setProfile(profileResp.data);
+        setIsStaff(profileResp.data.is_staff);
+        const [progressResp, tasksResp, activityResp, achievementResp, recommendedResp] =
+          await Promise.all([
+            api.get('/courses/progress/'),
+            api.get('/courses/integration/tasks/'),
+            api.get('/courses/activities/'),
+            api.get('/courses/achievements/'),
+            api.get('/courses/recommended/'),
+          ]);
+        if (!active) {
+          return;
+        }
+        setProgresses(progressResp.data);
+        setTasksData(tasksResp.data);
+        setActivities(activityResp.data);
+        setAchievements(achievementResp.data);
+        setRecommended(recommendedResp.data);
       } catch (err) {
         console.error(err);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     }
-    async function fetchProfile() {
-      try {
-        const resp = await api.get('/accounts/profile/');
-        setIsStaff(resp.data.is_staff);
-      } catch (err) {
-        // ignore
-      }
-    }
-    async function fetchTasks() {
-      try {
-        const resp = await api.get('/courses/integration/tasks/');
-        setTasksData(resp.data);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    async function fetchActivities() {
-      try {
-        const resp = await api.get('/courses/activities/');
-        setActivities(resp.data);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    async function fetchAchievements() {
-      try {
-        const resp = await api.get('/courses/achievements/');
-        setAchievements(resp.data);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    async function fetchRecommended() {
-      try {
-        const resp = await api.get('/courses/recommended/');
-        setRecommended(resp.data);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    fetchProgress();
-    fetchProfile();
-    fetchTasks();
-    fetchActivities();
-    fetchAchievements();
-    fetchRecommended();
+
+    loadDashboard();
+    return () => {
+      active = false;
+    };
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('refreshToken');
-    navigate('/login');
+  const formatDate = (value) => {
+    if (!value) {
+      return 'Не указано';
+    }
+    return new Date(value).toLocaleDateString('ru-RU', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
   };
 
+  const profileName = profile
+    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim() ||
+      profile.username
+    : '';
+
+  if (loading) {
+    return (
+      <div className="page">
+        <Loader label="Загружаем личный кабинет..." />
+      </div>
+    );
+  }
+
   return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto' }}>
-      <h2>Dashboard</h2>
-      <button onClick={handleLogout} style={{ marginBottom: '1rem' }}>Logout</button>
-      <div style={{ marginBottom: '1rem' }}>
-        <button onClick={toggleTheme} style={{ marginRight: '1rem' }}>
-          Switch to {theme === 'light' ? 'dark' : 'light'} mode
-        </button>
-      </div>
-      <div style={{ marginBottom: '1rem' }}>
-        <Link to="/profile">Edit Profile</Link>
-        {isStaff && (
-          <>
-            {' | '}
-            <Link to="/admin">Admin Dashboard</Link>
-          </>
-        )}
-      </div>
-      <h3>Your Course Progress</h3>
-      {progresses.length === 0 ? (
-        <p>You have not started any courses yet. <Link to="/courses">Browse courses</Link>.</p>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {progresses.map((p) => (
-            <div key={p.id} style={{ border: '1px solid #ccc', padding: '1rem', borderRadius: '4px' }}>
-              <h4>{p.course.title}</h4>
-              <ProgressBar progress={p.progress} />
-              <p>{p.progress.toFixed(0)}% completed</p>
-              <Link to={`/courses/${p.course.id}`}>Continue course</Link>
+    <div className="page">
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">Онбординг сотрудников</p>
+          <h1>Личный кабинет</h1>
+          <p className="muted">
+            Следите за прогрессом, отмечайте уроки и получайте рекомендации для быстрого старта.
+          </p>
+        </div>
+        <div className="page-header__actions">
+          <Link className="btn btn--ghost" to="/profile">
+            Мой профиль
+          </Link>
+          <Link className="btn btn--secondary" to="/courses">
+            Каталог курсов
+          </Link>
+        </div>
+      </header>
+
+      {profile && (
+        <section className="card profile-card">
+          <div>
+            <p className="eyebrow">Ваш профиль</p>
+            <h2>{profileName}</h2>
+            <p className="muted">Логин: {profile.username}</p>
+          </div>
+          <div className="profile-grid">
+            <div>
+              <span className="muted caption">Отдел / роль</span>
+              <p>{profile.profile?.department || 'Не указано'}</p>
             </div>
-          ))}
-          <Link to="/courses">Browse all courses</Link>
-        </div>
+            <div>
+              <span className="muted caption">Наставник</span>
+              <p>{profile.profile?.mentor_name || 'Не назначен'}</p>
+            </div>
+            <div>
+              <span className="muted caption">Город</span>
+              <p>{profile.profile?.city || 'Не указан'}</p>
+            </div>
+            <div>
+              <span className="muted caption">Дата выхода в компанию</span>
+              <p>{formatDate(profile.profile?.date_joined_company)}</p>
+            </div>
+          </div>
+        </section>
       )}
 
-      {/* Integration plan tasks */}
-      <h3 style={{ marginTop: '2rem' }}>Your Integration Plan</h3>
-      {tasksData.tasks.length === 0 ? (
-        <p>No integration tasks defined.</p>
-      ) : (
-        <div style={{ marginBottom: '1rem' }}>
-          <ProgressBar progress={tasksData.progress} />
-          <p>{tasksData.progress.toFixed(0)}% of tasks completed</p>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            {tasksData.tasks.map((t) => (
-              <li key={t.task_id} style={{ display: 'flex', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <input
-                  type="checkbox"
-                  checked={t.completed}
-                  onChange={async () => {
-                    try {
-                      await api.post(`/courses/integration/tasks/${t.task_id}/toggle/`);
-                      // Refresh tasks
-                      const resp = await api.get('/courses/integration/tasks/');
-                      setTasksData(resp.data);
-                    } catch (err) {
-                      console.error(err);
-                    }
-                  }}
-                  style={{ marginRight: '0.5rem' }}
-                />
-                {t.description}
-              </li>
+      <section className="card">
+        <div className="card__header">
+          <div>
+            <p className="eyebrow">Ваши курсы</p>
+            <h2>Прогресс обучения</h2>
+          </div>
+          <Link to="/profile" className="link">
+            Настроить профиль
+          </Link>
+        </div>
+        {progresses.length === 0 ? (
+          <p>
+            Вы ещё не начали занятия. <Link to="/courses">Выберите первый курс</Link>.
+          </p>
+        ) : (
+          <div className="list list--gap">
+            {progresses.map((p) => (
+              <div key={p.id} className="card card--inline">
+                <div>
+                  <h3>{p.course.title}</h3>
+                  <p className="muted">{p.course.description?.slice(0, 90)}</p>
+                  <ProgressBar progress={p.progress} />
+                  <p className="muted">{p.progress.toFixed(0)}% завершено</p>
+                </div>
+                <Link className="btn btn--secondary" to={`/courses/${p.course.id}`}>
+                  Продолжить
+                </Link>
+              </div>
             ))}
-          </ul>
-        </div>
-      )}
+          </div>
+        )}
+        {isStaff && (
+          <div className="info-banner">
+            <p>
+              У вас есть права администратора. Перейдите в{' '}
+              <Link to="/admin">панель наставника</Link>, чтобы посмотреть прогресс команды.
+            </p>
+          </div>
+        )}
+      </section>
 
-      {/* Activity log */}
-      <h3>Recent Activity</h3>
-      {activities.length === 0 ? (
-        <p>No recent activity.</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {activities.map((act) => (
-            <li key={act.id} style={{ marginBottom: '0.5rem' }}>
-              {new Date(act.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {act.action}
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="dashboard-grid" id="tasks">
+        <section className="card">
+          <div className="card__header">
+            <div>
+              <p className="eyebrow">Пошаговый план</p>
+              <h2>Интеграционные задачи</h2>
+            </div>
+            <span className="tag">{tasksData.progress.toFixed(0)}%</span>
+          </div>
+          {tasksData.tasks.length === 0 ? (
+            <p>Задачи онбординга пока не назначены.</p>
+          ) : (
+            <>
+              <ProgressBar progress={tasksData.progress} />
+              <ul className="list list--tasks">
+                {tasksData.tasks.map((t) => (
+                  <li key={t.task_id}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={t.completed}
+                        onChange={async () => {
+                          try {
+                            await api.post(`/courses/integration/tasks/${t.task_id}/toggle/`);
+                            const resp = await api.get('/courses/integration/tasks/');
+                            setTasksData(resp.data);
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }}
+                      />
+                      <span>{t.description}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
 
-      {/* Achievements */}
-      <h3>Your Achievements</h3>
-      {achievements.length === 0 ? (
-        <p>You have no achievements yet.</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {achievements.map((ach) => (
-            <li key={ach.id} style={{ marginBottom: '0.5rem' }}>
-              <span style={{ fontWeight: ach.awarded ? 'bold' : 'normal' }}>
-                {ach.name}
-              </span>{' '}
-              {ach.awarded ? '✓' : ''}
-            </li>
-          ))}
-        </ul>
-      )}
+        <section className="card">
+          <div className="card__header">
+            <div>
+              <p className="eyebrow">Фокус дня</p>
+              <h2>Лента активности</h2>
+            </div>
+          </div>
+          {activities.length === 0 ? (
+            <p>Как только отметите урок, здесь появится запись.</p>
+          ) : (
+            <ul className="timeline">
+              {activities.map((act) => (
+                <li key={act.id}>
+                  <span>
+                    {new Date(act.timestamp).toLocaleTimeString('ru-RU', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                  <p>{act.action}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
 
-      {/* Recommended courses */}
-      <h3>Recommended Courses</h3>
-      {recommended.length === 0 ? (
-        <p>No recommendations at this time.</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
-          {recommended.map((course) => (
-            <li key={course.id} style={{ border: '1px solid var(--card-border)', background: 'var(--card-bg)', margin: '1rem 0', padding: '1rem', borderRadius: '4px' }}>
-              <h4>{course.title}</h4>
-              <p>{course.description}</p>
-              <p><strong>Role:</strong> {course.role}</p>
-              <Link to={`/courses/${course.id}`}>View Course</Link>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className="dashboard-grid">
+        <section className="card">
+          <div className="card__header">
+            <div>
+              <p className="eyebrow">Мотиваторы</p>
+              <h2>Достижения</h2>
+            </div>
+          </div>
+          {achievements.length === 0 ? (
+            <p>Получайте бейджи, завершая уроки и курсы.</p>
+          ) : (
+            <ul className="list">
+              {achievements.map((ach) => (
+                <li key={ach.id} className="achievement">
+                  <span className={`badge ${ach.awarded ? 'badge--success' : ''}`}>
+                    {ach.awarded ? 'Получено' : 'В процессе'}
+                  </span>
+                  <div>
+                    <h4>{ach.name}</h4>
+                    <p className="muted">{ach.description}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="card">
+          <div className="card__header">
+            <div>
+              <p className="eyebrow">Что дальше?</p>
+              <h2>Рекомендации</h2>
+            </div>
+          </div>
+          {recommended.length === 0 ? (
+            <p>Как только вы завершите текущий курс, мы предложим новые темы.</p>
+          ) : (
+            <ul className="list list--gap">
+              {recommended.map((course) => (
+                <li key={course.id} className="card card--inline">
+                  <div>
+                    <h3>{course.title}</h3>
+                    <p className="muted">{course.description}</p>
+                    <span className="tag tag--ghost">{course.role}</span>
+                  </div>
+                  <Link className="btn btn--secondary" to={`/courses/${course.id}`}>
+                    Открыть
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

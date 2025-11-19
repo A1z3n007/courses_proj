@@ -1,13 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import api from '../api';
+import Loader from '../components/Loader';
 
-/**
- * QuizPage renders a quiz associated with a particular course. Users can
- * select an answer for each question and submit their responses. After
- * submission, the score is displayed along with the total number of
- * questions. This page assumes that the user is authenticated.
- */
 export default function QuizPage() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -15,14 +10,18 @@ export default function QuizPage() {
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchQuiz() {
+      setLoading(true);
       try {
         const resp = await api.get(`/courses/${id}/quiz/`);
         setQuiz(resp.data);
       } catch (err) {
-        setError('Unable to load quiz.');
+        setError('Не удалось загрузить тест.');
+      } finally {
+        setLoading(false);
       }
     }
     fetchQuiz();
@@ -36,54 +35,86 @@ export default function QuizPage() {
     e.preventDefault();
     setError('');
     try {
-      // POST answers mapping questionId -> answerId
       const resp = await api.post(`/courses/${id}/quiz/submit/`, { answers });
       setResult(resp.data);
     } catch (err) {
-      setError('Failed to submit quiz.');
+      setError('Отправка ответов не удалась.');
     }
   };
 
+  if (loading) {
+    return (
+      <div className="page">
+        <Loader label="Готовим вопросы..." />
+      </div>
+    );
+  }
+
   if (!quiz) {
-    return <p>{error || 'Loading quiz...'}</p>;
+    return (
+      <div className="page">
+        <p>{error || 'Тест недоступен.'}</p>
+      </div>
+    );
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto' }}>
-      <h2>Quiz: {quiz.title}</h2>
-      <Link to={`/courses/${id}`}>Back to Course</Link>
-      {result ? (
-        <div style={{ marginTop: '1rem' }}>
-          <p>You scored {result.score} out of {result.total}.</p>
-          <button onClick={() => navigate(`/courses/${id}`)} style={{ marginTop: '0.5rem' }}>
-            Return to Course
-          </button>
+    <div className="page">
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">Итоговый тест</p>
+          <h1>{quiz.title}</h1>
+          <p className="muted">Ответьте на вопросы, чтобы закрепить знания из курса.</p>
         </div>
-      ) : (
-        <form onSubmit={handleSubmit} style={{ marginTop: '1rem' }}>
-          {quiz.questions.map((q) => (
-            <div key={q.id} style={{ marginBottom: '1rem', border: '1px solid var(--card-border)', background: 'var(--card-bg)', padding: '1rem', borderRadius: '4px' }}>
-              <p style={{ fontWeight: 'bold' }}>{q.text}</p>
-              {q.answers.map((ans) => (
-                <div key={ans.id} style={{ marginLeft: '1rem', marginBottom: '0.5rem' }}>
-                  <label>
+        <Link className="btn btn--ghost" to={`/courses/${id}`}>
+          Назад к курсу
+        </Link>
+      </header>
+
+      <section className="card">
+        {result ? (
+          <div className="result-banner">
+            <h2>
+              Ваш результат: {result.score} / {result.total}
+            </h2>
+            <p className="muted">
+              {result.score === result.total
+                ? 'Идеально! Вы усвоили материал.'
+                : 'Посмотрите вопросы, в которых сомневались, и повторите урок.'}
+            </p>
+            <button className="btn" onClick={() => navigate(`/courses/${id}`)}>
+              Вернуться к урокам
+            </button>
+          </div>
+        ) : (
+          <form className="quiz" onSubmit={handleSubmit}>
+            {quiz.questions.map((q, index) => (
+              <div key={q.id} className="quiz-card">
+                <p className="quiz-card__title">
+                  {index + 1}. {q.text}
+                </p>
+                {q.answers.map((ans) => (
+                  <label key={ans.id} className="quiz-option">
                     <input
                       type="radio"
                       name={`question-${q.id}`}
                       value={ans.id}
                       checked={answers[q.id] === ans.id}
                       onChange={() => handleAnswerChange(q.id, ans.id)}
+                      required
                     />
-                    {' '}{ans.text}
+                    <span>{ans.text}</span>
                   </label>
-                </div>
-              ))}
-            </div>
-          ))}
-          {error && <p style={{ color: 'red' }}>{error}</p>}
-          <button type="submit" style={{ padding: '0.5rem 1rem' }}>Submit Quiz</button>
-        </form>
-      )}
+                ))}
+              </div>
+            ))}
+            {error && <p className="form-error">{error}</p>}
+            <button type="submit" className="btn">
+              Отправить ответы
+            </button>
+          </form>
+        )}
+      </section>
     </div>
   );
 }

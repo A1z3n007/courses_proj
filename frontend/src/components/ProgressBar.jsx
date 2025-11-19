@@ -1,24 +1,18 @@
 import React from 'react';
 
-// A simple progress bar component that displays the percentage completed.
+// Индикатор прогресса с цветовым кодом.
 export default function ProgressBar({ progress }) {
   const clamped = Math.min(Math.max(progress, 0), 100);
-  // Choose a color based on progress percentage: red for <30%, yellow for 30–69%, green otherwise.
-  let barColor = '#4caf50';
+  let barColor = 'var(--progress-success)';
   if (clamped < 30) {
-    barColor = '#f44336';
+    barColor = 'var(--progress-danger)';
   } else if (clamped < 70) {
-    barColor = '#ffc107';
+    barColor = 'var(--progress-warning)';
   }
+
   return (
-    <div style={{ background: '#eee', borderRadius: '4px', overflow: 'hidden', height: '10px' }}>
-      <div
-        style={{
-          width: `${clamped}%`,
-          background: barColor,
-          height: '100%',
-        }}
-      />
+    <div className="progress">
+      <div className="progress__bar" style={{ width: `${clamped}%`, background: barColor }} />
     </div>
   );
 }

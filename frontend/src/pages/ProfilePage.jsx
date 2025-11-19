@@ -1,15 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
 import api from '../api';
+import Loader from '../components/Loader';
 
-/**
- * ProfilePage allows the user to view and edit their profile, including
- * extended fields stored in the Profile model. On initial render it
- * loads the current user data; on submit it sends a PUT request to
- * update both User and Profile fields.
- */
 export default function ProfilePage() {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -30,7 +23,6 @@ export default function ProfilePage() {
     async function fetchProfile() {
       try {
         const resp = await api.get('/accounts/profile/');
-        // Ensure nested profile exists
         const profileData = resp.data.profile || {
           department: '',
           mentor_name: '',
@@ -45,7 +37,7 @@ export default function ProfilePage() {
           profile: profileData,
         });
       } catch (err) {
-        setError('Failed to load profile');
+        setError('Не удалось загрузить профиль');
       } finally {
         setLoading(false);
       }
@@ -72,110 +64,127 @@ export default function ProfilePage() {
     setSuccess('');
     try {
       await api.put('/accounts/profile/', data);
-      setSuccess('Profile updated successfully');
+      setSuccess('Профиль обновлён');
     } catch (err) {
-      setError('Failed to update profile');
+      setError('Не удалось сохранить профиль');
     }
   };
 
-  if (loading) return <p>Loading...</p>;
+  if (loading) {
+    return (
+      <div className="page">
+        <Loader label="Загружаем профиль..." />
+      </div>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '600px', margin: '2rem auto' }}>
-      <h2>Edit Profile</h2>
-      <Link to="/">Back to Dashboard</Link>
-      <form onSubmit={handleSubmit} style={{ marginTop: '1rem' }}>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>First name</label>
-          <input
-            type="text"
-            name="first_name"
-            value={data.first_name}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
+    <div className="page page--narrow">
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">Профиль</p>
+          <h1>Личные данные</h1>
+          <p className="muted">Обновите контакты и информацию для наставника.</p>
         </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Last name</label>
-          <input
-            type="text"
-            name="last_name"
-            value={data.last_name}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Email</label>
-          <input
-            type="email"
-            name="email"
-            value={data.email}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
-        </div>
-        {/* Profile fields */}
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Department</label>
-          <input
-            type="text"
-            name="profile.department"
-            value={data.profile.department}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Mentor Name</label>
-          <input
-            type="text"
-            name="profile.mentor_name"
-            value={data.profile.mentor_name}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Date Joined Company</label>
-          <input
-            type="date"
-            name="profile.date_joined_company"
-            value={data.profile.date_joined_company || ''}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>City</label>
-          <input
-            type="text"
-            name="profile.city"
-            value={data.profile.city}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.5rem' }}
-          />
-        </div>
-        <div style={{ marginBottom: '1rem' }}>
-          <label>Avatar</label>
-          <select
-            name="profile.avatar"
-            value={data.profile.avatar}
-            onChange={handleChange}
-            style={{ width: '100%', padding: '0.5rem' }}
-          >
-            <option value="">Select avatar</option>
-            <option value="robot">Robot</option>
-            <option value="astronaut">Astronaut</option>
-            <option value="worker">Worker</option>
-            <option value="manager">Manager</option>
-            <option value="seller">Seller</option>
-          </select>
-        </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        {success && <p style={{ color: 'green' }}>{success}</p>}
-        <button type="submit" style={{ padding: '0.5rem 1rem' }}>Save</button>
-      </form>
+      </header>
+      <section className="card">
+        <form className="form" onSubmit={handleSubmit}>
+          <label className="form-field">
+            <span>Имя</span>
+            <input
+              className="input"
+              type="text"
+              name="first_name"
+              value={data.first_name}
+              onChange={handleChange}
+            />
+          </label>
+          <label className="form-field">
+            <span>Фамилия</span>
+            <input
+              className="input"
+              type="text"
+              name="last_name"
+              value={data.last_name}
+              onChange={handleChange}
+            />
+          </label>
+          <label className="form-field">
+            <span>Рабочая почта</span>
+            <input
+              className="input"
+              type="email"
+              name="email"
+              value={data.email}
+              onChange={handleChange}
+            />
+          </label>
+          <label className="form-field">
+            <span>Отдел / роль</span>
+            <input
+              className="input"
+              type="text"
+              name="profile.department"
+              value={data.profile.department}
+              onChange={handleChange}
+              placeholder="Например, Продажи"
+            />
+          </label>
+          <label className="form-field">
+            <span>Наставник</span>
+            <input
+              className="input"
+              type="text"
+              name="profile.mentor_name"
+              value={data.profile.mentor_name}
+              onChange={handleChange}
+              placeholder="ФИО наставника"
+            />
+          </label>
+          <label className="form-field">
+            <span>Дата выхода в компанию</span>
+            <input
+              className="input"
+              type="date"
+              name="profile.date_joined_company"
+              value={data.profile.date_joined_company || ''}
+              onChange={handleChange}
+            />
+          </label>
+          <label className="form-field">
+            <span>Город</span>
+            <input
+              className="input"
+              type="text"
+              name="profile.city"
+              value={data.profile.city}
+              onChange={handleChange}
+              placeholder="Алматы, Нур-Султан..."
+            />
+          </label>
+          <label className="form-field">
+            <span>Аватар</span>
+            <select
+              className="select"
+              name="profile.avatar"
+              value={data.profile.avatar}
+              onChange={handleChange}
+            >
+              <option value="">Выберите вариант</option>
+              <option value="robot">Робот</option>
+              <option value="astronaut">Астронавт</option>
+              <option value="worker">Сотрудник</option>
+              <option value="manager">Менеджер</option>
+              <option value="seller">Продавец</option>
+            </select>
+          </label>
+          {error && <p className="form-error">{error}</p>}
+          {success && <p className="form-success">{success}</p>}
+          <button type="submit" className="btn">
+            Сохранить
+          </button>
+        </form>
+      </section>
     </div>
   );
 }

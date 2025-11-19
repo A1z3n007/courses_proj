@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api';
 import ProgressBar from '../components/ProgressBar';
+import Loader from '../components/Loader';
 
 export default function CourseDetailPage() {
   const { id } = useParams();
@@ -14,87 +15,116 @@ export default function CourseDetailPage() {
   const [reviewError, setReviewError] = useState('');
   const [reviewSuccess, setReviewSuccess] = useState('');
   const [showQuizLink, setShowQuizLink] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        const [courseResp, progressResp] = await Promise.all([
-          api.get(`/courses/${id}/`),
-          api.get('/courses/progress/'),
-        ]);
-        setCourse(courseResp.data);
-        setAverageRating(courseResp.data.average_rating);
-        // Find progress for this course
-        const progressData = progressResp.data.find((p) => p.course.id === parseInt(id));
-        if (progressData) {
-          setCompletedLessons(progressData.completed_lessons);
-          setProgress(progressData.progress);
-        } else {
-          setCompletedLessons([]);
-          setProgress(0);
-        }
-        // Determine if quiz link should be shown: course has quiz and progress 100%
-        if (courseResp.data.has_quiz && progressData && progressData.progress >= 100) {
-          setShowQuizLink(true);
-        } else {
-          setShowQuizLink(false);
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    }
-    fetchData();
-  }, [id]);
-
-  const handleToggleLesson = async (lessonId, isCompleted) => {
+  const refreshProgress = async (hasQuizOverride) => {
     try {
-      if (isCompleted) {
-        await api.post(`/courses/${id}/lessons/${lessonId}/uncomplete/`);
-        setCompletedLessons((prev) => prev.filter((lid) => lid !== lessonId));
+      const progressResp = await api.get('/courses/progress/');
+      const progressData = progressResp.data.find((p) => p.course.id === Number(id));
+      if (progressData) {
+        setCompletedLessons(progressData.completed_lessons);
+        setProgress(progressData.progress);
+        const hasQuiz =
+          typeof hasQuizOverride === 'boolean' ? hasQuizOverride : Boolean(course?.has_quiz);
+        setShowQuizLink(hasQuiz && progressData.progress >= 100);
       } else {
-        await api.post(`/courses/${id}/lessons/${lessonId}/complete/`);
-        setCompletedLessons((prev) => [...prev, lessonId]);
-      }
-      // Update progress after toggling
-      if (course) {
-        const total = course.lessons.length;
-        const newCompleted = isCompleted
-          ? completedLessons.filter((lid) => lid !== lessonId).length
-          : completedLessons.length + 1;
-        setProgress((newCompleted / total) * 100);
+        setCompletedLessons([]);
+        setProgress(0);
+        setShowQuizLink(false);
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  if (!course) return <p>Loading...</p>;
+  useEffect(() => {
+    let active = true;
+    async function fetchCourse() {
+      setLoading(true);
+      try {
+        const courseResp = await api.get(`/courses/${id}/`);
+        if (!active) return;
+        setCourse(courseResp.data);
+        setAverageRating(courseResp.data.average_rating);
+        await refreshProgress(courseResp.data.has_quiz);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    }
+    fetchCourse();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  const handleToggleLesson = async (lessonId, isCompleted) => {
+    try {
+      if (isCompleted) {
+        await api.post(`/courses/${id}/lessons/${lessonId}/uncomplete/`);
+      } else {
+        await api.post(`/courses/${id}/lessons/${lessonId}/complete/`);
+      }
+      await refreshProgress();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  if (loading || !course) {
+    return (
+      <div className="page">
+        <Loader label="Загружаем курс..." />
+      </div>
+    );
+  }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto' }}>
-      <h2>{course.title}</h2>
-      <p>{course.description}</p>
-      <Link to="/courses">Back to Courses</Link>
-      <div style={{ margin: '1rem 0' }}>
+    <div className="page">
+      <header className="page-header">
+        <div>
+          <p className="eyebrow">Курс</p>
+          <h1>{course.title}</h1>
+          <p className="muted">{course.description}</p>
+        </div>
+        <Link className="btn btn--ghost" to="/courses">
+          Назад
+        </Link>
+      </header>
+
+      <section className="card">
+        <div className="card__header">
+          <div>
+            <p className="eyebrow">Движение по урокам</p>
+            <h2>Прогресс</h2>
+          </div>
+          <span className="tag">{progress.toFixed(0)}%</span>
+        </div>
         <ProgressBar progress={progress} />
-        <p>{progress.toFixed(0)}% completed</p>
-        {/* Show quiz link if course has quiz and progress is complete */}
         {showQuizLink && (
-          <div style={{ marginTop: '0.5rem' }}>
-            <Link to={`/courses/${id}/quiz`}>Take Quiz</Link>
+          <div className="info-banner">
+            <p>
+              Поздравляем! Курс завершён — можно пройти{' '}
+              <Link to={`/courses/${id}/quiz`}>итоговый тест</Link>.
+            </p>
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Rating information */}
-      <div style={{ marginBottom: '1rem' }}>
-        <h3>Course Rating</h3>
-        {averageRating !== null ? (
-          <p>Average rating: {averageRating.toFixed(2)} / 5</p>
-        ) : (
-          <p>No ratings yet.</p>
-        )}
+      <section className="card">
+        <div className="card__header">
+          <div>
+            <p className="eyebrow">Обратная связь</p>
+            <h2>Оценка курса</h2>
+          </div>
+          {averageRating !== null && <span className="tag">{averageRating.toFixed(2)} / 5</span>}
+        </div>
+        {averageRating === null && <p>Этот курс ещё никто не оценивал.</p>}
         <form
+          className="form"
           onSubmit={async (e) => {
             e.preventDefault();
             setReviewError('');
@@ -104,57 +134,72 @@ export default function CourseDetailPage() {
                 rating: Number(rating),
                 comment,
               });
-              setReviewSuccess('Thank you for your review!');
+              setReviewSuccess('Спасибо! Отзыв отправлен.');
               setComment('');
-              // Reload course details to update average rating
               const resp = await api.get(`/courses/${id}/`);
               setAverageRating(resp.data.average_rating);
             } catch (err) {
-              setReviewError('Unable to submit review. You may have already reviewed this course.');
+              setReviewError('Не удалось отправить отзыв. Возможно, вы уже оставляли оценку.');
             }
           }}
         >
-          <div style={{ marginBottom: '0.5rem' }}>
-            <label>Your rating:</label>
-            <select value={rating} onChange={(e) => setRating(e.target.value)} style={{ marginLeft: '0.5rem' }}>
+          <label className="form-field">
+            <span>Ваша оценка</span>
+            <select className="select" value={rating} onChange={(e) => setRating(e.target.value)}>
               {[1, 2, 3, 4, 5].map((n) => (
-                <option key={n} value={n}>{n}</option>
+                <option key={n} value={n}>
+                  {n}
+                </option>
               ))}
             </select>
-          </div>
-          <div style={{ marginBottom: '0.5rem' }}>
-            <label>Your comment:</label>
+          </label>
+          <label className="form-field">
+            <span>Комментарий</span>
             <textarea
+              className="input"
+              style={{ minHeight: '120px' }}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
-              style={{ width: '100%', minHeight: '80px' }}
+              placeholder="Что понравилось? Что улучшить?"
             />
-          </div>
-          {reviewError && <p style={{ color: 'red' }}>{reviewError}</p>}
-          {reviewSuccess && <p style={{ color: 'green' }}>{reviewSuccess}</p>}
-          <button type="submit" style={{ padding: '0.5rem 1rem' }}>Submit Review</button>
+          </label>
+          {reviewError && <p className="form-error">{reviewError}</p>}
+          {reviewSuccess && <p className="form-success">{reviewSuccess}</p>}
+          <button type="submit" className="btn btn--secondary">
+            Отправить отзыв
+          </button>
         </form>
-      </div>
-      <h3>Lessons</h3>
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {course.lessons.map((lesson) => {
-          const isCompleted = completedLessons.includes(lesson.id);
-          return (
-            <li key={lesson.id} style={{ border: '1px solid #ccc', margin: '1rem 0', padding: '1rem', borderRadius: '4px' }}>
-              <h4>{lesson.title}</h4>
-              {lesson.video_url && (
-                <div style={{ marginBottom: '0.5rem' }}>
-                  <video src={lesson.video_url} controls width="100%" />
+      </section>
+
+      <section className="card">
+        <div className="card__header">
+          <div>
+            <p className="eyebrow">Материалы</p>
+            <h2>Список уроков</h2>
+          </div>
+        </div>
+        <ul className="list list--gap">
+          {course.lessons.map((lesson) => {
+            const isCompleted = completedLessons.includes(lesson.id);
+            return (
+              <li key={lesson.id} className={`lesson ${isCompleted ? 'lesson--done' : ''}`}>
+                <div>
+                  <h3>{lesson.title}</h3>
+                  <p className="muted">{lesson.content}</p>
+                  {lesson.video_url && (
+                    <div className="video-wrapper">
+                      <video src={lesson.video_url} controls width="100%" />
+                    </div>
+                  )}
                 </div>
-              )}
-              <p>{lesson.content}</p>
-              <button onClick={() => handleToggleLesson(lesson.id, isCompleted)}>
-                {isCompleted ? 'Mark as uncompleted' : 'Mark as completed'}
-              </button>
-            </li>
-          );
-        })}
-      </ul>
+                <button className="btn" onClick={() => handleToggleLesson(lesson.id, isCompleted)}>
+                  {isCompleted ? 'Вернуть в план' : 'Отметить как пройдено'}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </div>
   );
 }
