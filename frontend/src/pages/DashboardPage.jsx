@@ -4,6 +4,14 @@ import api from '../api';
 import ProgressBar from '../components/ProgressBar';
 import Loader from '../components/Loader';
 
+const avatarPresets = {
+  robot: { label: 'Робот', emoji: '🤖', color: '#9b8bff' },
+  astronaut: { label: 'Астронавт', emoji: '👩‍🚀', color: '#5fa0ff' },
+  worker: { label: 'Сотрудник', emoji: '👷‍♂️', color: '#f6b756' },
+  manager: { label: 'Менеджер', emoji: '👔', color: '#47b07d' },
+  seller: { label: 'Продавец', emoji: '🛒', color: '#ff8f70' },
+};
+
 export default function DashboardPage() {
   const [progresses, setProgresses] = useState([]);
   const [isStaff, setIsStaff] = useState(false);
@@ -103,16 +111,32 @@ export default function DashboardPage() {
 
       {profile && (
         <section className="card profile-card">
-          <div>
-            <p className="eyebrow">Ваш профиль</p>
-            <h2>{profileName}</h2>
-            <p className="muted">Логин: {profile.username}</p>
+          <div className="profile-card__top">
+            <div
+              className="profile-avatar"
+              style={{
+                background: `${(avatarPresets[profile.profile?.avatar]?.color || '#47b07d')}22`,
+                color: avatarPresets[profile.profile?.avatar]?.color || '#47b07d',
+              }}
+            >
+              {avatarPresets[profile.profile?.avatar]?.emoji ||
+                profileName
+                  .split(' ')
+                  .filter(Boolean)
+                  .map((part) => part.charAt(0).toUpperCase())
+                  .slice(0, 2)
+                  .join('')}
+            </div>
+            <div>
+              <p className="eyebrow">Ваш профиль</p>
+              <h2>{profileName}</h2>
+              <p className="muted">
+                {profile.is_staff ? 'Администратор' : profile.profile?.department || 'Сотрудник'} •
+                Логин: {profile.username}
+              </p>
+            </div>
           </div>
           <div className="profile-grid">
-            <div>
-              <span className="muted caption">Отдел / роль</span>
-              <p>{profile.profile?.department || 'Не указано'}</p>
-            </div>
             <div>
               <span className="muted caption">Наставник</span>
               <p>{profile.profile?.mentor_name || 'Не назначен'}</p>
@@ -124,6 +148,10 @@ export default function DashboardPage() {
             <div>
               <span className="muted caption">Дата выхода в компанию</span>
               <p>{formatDate(profile.profile?.date_joined_company)}</p>
+            </div>
+            <div>
+              <span className="muted caption">Выбранный аватар</span>
+              <p>{avatarPresets[profile.profile?.avatar]?.label || 'Не выбран'}</p>
             </div>
           </div>
         </section>

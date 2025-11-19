@@ -118,6 +118,20 @@ a:hover {
   border-radius: 14px;
   background: #f7faff;
   border: 1px solid #e7edff;
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.app-shell__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1.2rem;
 }
 
 .app-shell__user-name {
@@ -299,6 +313,23 @@ a:hover {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+}
+
+.profile-card__top {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.profile-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
 }
 
 .profile-grid {

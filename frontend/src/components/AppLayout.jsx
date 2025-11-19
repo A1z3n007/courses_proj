@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../api';
 import { useAuth } from '../AuthContext.jsx';
@@ -9,6 +9,14 @@ const navLinks = [
   { to: '/profile', label: 'Профиль' },
   { to: '/admin', label: 'Админ-панель' },
 ];
+
+const avatarPresets = {
+  robot: { label: 'Робот', emoji: '🤖', color: '#9b8bff' },
+  astronaut: { label: 'Астронавт', emoji: '👩‍🚀', color: '#5fa0ff' },
+  worker: { label: 'Сотрудник', emoji: '👷‍♂️', color: '#f6b756' },
+  manager: { label: 'Менеджер', emoji: '👔', color: '#47b07d' },
+  seller: { label: 'Продавец', emoji: '🛒', color: '#ff8f70' },
+};
 
 export default function AppLayout({ children }) {
   const location = useLocation();
@@ -36,28 +44,43 @@ export default function AppLayout({ children }) {
     navigate('/login');
   };
 
-  const initials = (() => {
-    if (!sidebarUser) {
-      return 'IH';
-    }
-    const first = (sidebarUser.first_name || sidebarUser.username || 'I')
-      .trim()
-      .charAt(0)
-      .toUpperCase();
-    const last = (sidebarUser.last_name || 'H').trim().charAt(0).toUpperCase();
-    return `${first}${last}`;
-  })();
-
   const sidebarName = sidebarUser
     ? [sidebarUser.first_name, sidebarUser.last_name].filter(Boolean).join(' ').trim() ||
       sidebarUser.username
     : 'Integration Hub';
 
+  const userRole = useMemo(() => {
+    if (!sidebarUser) {
+      return 'Онбординг';
+    }
+    if (sidebarUser.is_staff) {
+      return 'Администратор';
+    }
+    return sidebarUser.profile?.department || 'Сотрудник';
+  }, [sidebarUser]);
+
+  const avatar = useMemo(() => {
+    if (!sidebarUser) {
+      return { emoji: 'IH', color: '#47b07d' };
+    }
+    const preset = avatarPresets[sidebarUser.profile?.avatar];
+    if (preset) {
+      return preset;
+    }
+    const initials = sidebarName
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('');
+    return { emoji: initials || 'IH', color: '#47b07d' };
+  }, [sidebarName, sidebarUser]);
+
   return (
     <div className="app-shell">
       <aside className="app-shell__sidebar">
         <div className="app-shell__logo">
-          <span className="app-shell__logo-mark">{initials}</span>
+          <span className="app-shell__logo-mark">{avatar.emoji}</span>
           <div>
             <strong>Integration Hub</strong>
             <p>Обучение сотрудников</p>
@@ -81,10 +104,16 @@ export default function AppLayout({ children }) {
         </nav>
         {sidebarUser && (
           <div className="app-shell__user-card">
-            <p className="app-shell__user-name">{sidebarName}</p>
-            <p className="app-shell__user-role">
-              {sidebarUser.profile?.department || 'Роль не указана'}
-            </p>
+            <div
+              className="app-shell__avatar"
+              style={{ background: `${avatar.color}22`, color: avatar.color }}
+            >
+              {avatar.emoji}
+            </div>
+            <div>
+              <p className="app-shell__user-name">{sidebarName}</p>
+              <p className="app-shell__user-role">{userRole}</p>
+            </div>
           </div>
         )}
         <div className="app-shell__footer">
