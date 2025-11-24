@@ -29,7 +29,7 @@ const getDepartmentLabel = (value) => {
   if (!value) {
     return 'Ученик';
   }
-  const normalized = value.toLowerCase();
+  const normalized = String(value).toLowerCase();
   return departmentLabels[normalized] || value;
 };
 
@@ -48,7 +48,9 @@ export default function AppLayout({ children }) {
           setSidebarUser(resp.data);
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        console.error('Failed to load sidebar user', err);
+      });
     return () => {
       active = false;
     };
@@ -59,7 +61,7 @@ export default function AppLayout({ children }) {
     navigate('/login');
   };
 
-  // Гарантируем, что sidebarName ВСЕГДА строка
+  // Гарантируем, что имя в сайдбаре всегда строка
   const sidebarName = useMemo(() => {
     if (!sidebarUser) {
       return 'Integration Hub';
@@ -99,13 +101,11 @@ export default function AppLayout({ children }) {
     if (!sidebarUser) {
       return { emoji: 'IH', color: '#47b07d' };
     }
-
     const preset = avatarPresets[sidebarUser.profile?.avatar];
     if (preset) {
       return preset;
     }
 
-    // Доп. защита: если вдруг sidebarName всё равно что-то странное
     const initials =
       typeof sidebarName === 'string' && sidebarName.length > 0
         ? sidebarName
