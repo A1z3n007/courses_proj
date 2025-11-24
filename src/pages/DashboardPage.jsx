@@ -23,7 +23,7 @@ const getDepartmentLabel = (value) => {
   if (!value) {
     return 'Ученик';
   }
-  const normalized = value.toLowerCase();
+  const normalized = String(value).toLowerCase();
   return departmentLabels[normalized] || value;
 };
 
@@ -38,29 +38,33 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const dailySummary = useMemo(() => {
-  if (!Array.isArray(progresses) || progresses.length === 0) {
-    return null;
-  }
+    if (!Array.isArray(progresses) || progresses.length === 0) {
+      return null;
+    }
+    let remainingMinutes = 0;
+    let completedGoals = 0;
+    let longestStreak = 0;
 
-  let remainingMinutes = 0;
-  let completedGoals = 0;
-  let longestStreak = 0;
+    progresses.forEach((record) => {
+      if (!record) return;
+      const remaining = Math.max(
+        record.minutes_remaining ?? record.daily_goal_minutes ?? 0,
+        0,
+      );
+      remainingMinutes += remaining;
+      if (remaining === 0) {
+        completedGoals += 1;
+      }
+      longestStreak = Math.max(longestStreak, record.daily_streak || 0);
+    });
 
-  progresses.forEach((record) => {
-    const remaining = Math.max(record.minutes_remaining ?? record.daily_goal_minutes ?? 0, 0);
-    remainingMinutes += remaining;
-    if (remaining === 0) completedGoals += 1;
-    longestStreak = Math.max(longestStreak, record.daily_streak || 0);
-  });
-
-  return {
-    remainingMinutes,
-    completedGoals,
-    totalCourses: progresses.length,
-    longestStreak,
-  };
-}, [progresses]);
-
+    return {
+      remainingMinutes,
+      completedGoals,
+      totalCourses: progresses.length,
+      longestStreak,
+    };
+  }, [progresses]);
 
   useEffect(() => {
     let active = true;
@@ -69,11 +73,11 @@ export default function DashboardPage() {
       setLoading(true);
       try {
         const profileResp = await api.get('/accounts/profile/');
-        if (!active) {
-          return;
-        }
+        if (!active) return;
+
         setProfile(profileResp.data);
-        setIsStaff(profileResp.data.is_staff);
+        setIsStaff(!!profileResp.data?.is_staff);
+
         const [progressResp, tasksResp, activityResp, achievementResp, recommendedResp] =
           await Promise.all([
             api.get('/courses/progress/'),
@@ -82,16 +86,55 @@ export default function DashboardPage() {
             api.get('/courses/achievements/'),
             api.get('/courses/recommended/'),
           ]);
-        if (!active) {
-          return;
-        }
-        setProgresses(progressResp.data);
-        setTasksData(tasksResp.data);
-        setActivities(activityResp.data);
-        setAchievements(achievementResp.data);
-        setRecommended(recommendedResp.data);
+
+        if (!active) return;
+
+        // Прогрессы по курсам
+        const progressList = Array.isArray(progressResp.data)
+          ? progressResp.data
+          : Array.isArray(progressResp.data?.results)
+          ? progressResp.data.results
+          : [];
+        setProgresses(progressList);
+
+        // Интеграционные задачи
+        const rawTasks = tasksResp.data || {};
+        const tasksProgress =
+          typeof rawTasks.progress === 'number'
+            ? rawTasks.progress
+            : Number(rawTasks.progress) || 0;
+        const taskList = Array.isArray(rawTasks.tasks)
+          ? rawTasks.tasks
+          : Array.isArray(rawTasks.results)
+          ? rawTasks.results
+          : [];
+        setTasksData({ progress: tasksProgress, tasks: taskList });
+
+        // Активность
+        const activityList = Array.isArray(activityResp.data)
+          ? activityResp.data
+          : Array.isArray(activityResp.data?.results)
+          ? activityResp.data.results
+          : [];
+        setActivities(activityList);
+
+        // Достижения
+        const achievementList = Array.isArray(achievementResp.data)
+          ? achievementResp.data
+          : Array.isArray(achievementResp.data?.results)
+          ? achievementResp.data.results
+          : [];
+        setAchievements(achievementList);
+
+        // Рекомендации
+        const recommendedList = Array.isArray(recommendedResp.data)
+          ? recommendedResp.data
+          : Array.isArray(recommendedResp.data?.results)
+          ? recommendedResp.data.results
+          : [];
+        setRecommended(recommendedList);
       } catch (err) {
-        console.error(err);
+        console.error('Failed to load dashboard', err);
       } finally {
         if (active) {
           setLoading(false);
@@ -116,10 +159,31 @@ export default function DashboardPage() {
     });
   };
 
-  const profileName = profile
-    ? [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim() ||
-      profile.username
-    : '';
+  const profileName = useMemo(() => {
+    if (!profile) return '';
+
+    const fullName = [profile.first_name, profile.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    if (fullName) return fullName;
+    if (profile.username) return String(profile.username);
+    if (profile.email) return String(profile.email);
+    return 'Integration Hub';
+  }, [profile]);
+
+  const tasksProgressValue =
+    typeof tasksData?.progress === 'number'
+      ? tasksData.progress
+      : Number(tasksData?.progress) || 0;
+
+  const tasksList = Array.isArray(tasksData?.tasks) ? tasksData.tasks : [];
+
+  const activitiesList = Array.isArray(activities) ? activities : [];
+  const achievementsList = Array.isArray(achievements) ? achievements : [];
+  const recommendedList = Array.isArray(recommended) ? recommended : [];
+  const progressList = Array.isArray(progresses) ? progresses : [];
 
   if (loading) {
     return (
@@ -155,12 +219,14 @@ export default function DashboardPage() {
             <div
               className="profile-avatar"
               style={{
-                background: `${(avatarPresets[profile.profile?.avatar]?.color || '#47b07d')}22`,
+                background: `${
+                  (avatarPresets[profile.profile?.avatar]?.color || '#47b07d') + '22'
+                }`,
                 color: avatarPresets[profile.profile?.avatar]?.color || '#47b07d',
               }}
             >
               {avatarPresets[profile.profile?.avatar]?.emoji ||
-                profileName
+                (profileName || 'IH')
                   .split(' ')
                   .filter(Boolean)
                   .map((part) => part.charAt(0).toUpperCase())
@@ -171,8 +237,10 @@ export default function DashboardPage() {
               <p className="eyebrow">Ваш профиль</p>
               <h2>{profileName}</h2>
               <p className="muted">
-                {profile.is_staff ? 'Администратор' : getDepartmentLabel(profile.profile?.department)} •
-                Логин: {profile.username}
+                {profile.is_staff
+                  ? 'Администратор'
+                  : getDepartmentLabel(profile.profile?.department)}{' '}
+                • Логин: {profile.username}
               </p>
             </div>
           </div>
@@ -207,7 +275,7 @@ export default function DashboardPage() {
             Настроить профиль
           </Link>
         </div>
-        {progresses.length === 0 ? (
+        {progressList.length === 0 ? (
           <p>
             Вы ещё не начали занятия. <Link to="/courses">Выберите первый курс</Link>.
           </p>
@@ -223,16 +291,22 @@ export default function DashboardPage() {
               </div>
             )}
             <div className="list list--gap">
-              {progresses.map((p) => {
-                const remaining = Math.max(p.minutes_remaining ?? p.daily_goal_minutes ?? 0, 0);
+              {progressList.map((p) => {
+                if (!p || !p.course) return null;
+                const remaining = Math.max(
+                  p.minutes_remaining ?? p.daily_goal_minutes ?? 0,
+                  0,
+                );
+                const courseProgress =
+                  typeof p.progress === 'number' ? p.progress : Number(p.progress) || 0;
                 return (
                   <div key={p.id} className="card card--inline">
                     <div>
                       <h3>{p.course.title}</h3>
                       <p className="muted">{p.course.description?.slice(0, 90)}</p>
-                      <ProgressBar progress={p.progress} />
+                      <ProgressBar progress={courseProgress} />
                       <p className="muted">
-                        {p.progress.toFixed(0)}% завершено •{' '}
+                        {courseProgress.toFixed(0)}% завершено •{' '}
                         {remaining === 0
                           ? 'Цель на сегодня выполнена'
                           : `Осталось ${remaining} мин`}{' '}
@@ -265,27 +339,42 @@ export default function DashboardPage() {
               <p className="eyebrow">Пошаговый план</p>
               <h2>Интеграционные задачи</h2>
             </div>
-            <span className="tag">{tasksData.progress.toFixed(0)}%</span>
+            <span className="tag">{tasksProgressValue.toFixed(0)}%</span>
           </div>
-          {tasksData.tasks.length === 0 ? (
+          {tasksList.length === 0 ? (
             <p>Задачи онбординга пока не назначены.</p>
           ) : (
             <>
-              <ProgressBar progress={tasksData.progress} />
+              <ProgressBar progress={tasksProgressValue} />
               <ul className="list list--tasks">
-                {tasksData.tasks.map((t) => (
+                {tasksList.map((t) => (
                   <li key={t.task_id}>
                     <label>
                       <input
                         type="checkbox"
-                        checked={t.completed}
+                        checked={!!t.completed}
                         onChange={async () => {
                           try {
-                            await api.post(`/courses/integration/tasks/${t.task_id}/toggle/`);
-                            const resp = await api.get('/courses/integration/tasks/');
-                            setTasksData(resp.data);
+                            await api.post(
+                              `/courses/integration/tasks/${t.task_id}/toggle/`,
+                            );
+                            const resp = await api.get(
+                              '/courses/integration/tasks/',
+                            );
+                            const updated = resp.data || {};
+                            const updatedProgress =
+                              typeof updated.progress === 'number'
+                                ? updated.progress
+                                : Number(updated.progress) || 0;
+                            const updatedTasks = Array.isArray(updated.tasks)
+                              ? updated.tasks
+                              : [];
+                            setTasksData({
+                              progress: updatedProgress,
+                              tasks: updatedTasks,
+                            });
                           } catch (err) {
-                            console.error(err);
+                            console.error('Failed to toggle task', err);
                           }
                         }}
                       />
@@ -305,17 +394,19 @@ export default function DashboardPage() {
               <h2>Лента активности</h2>
             </div>
           </div>
-          {activities.length === 0 ? (
+          {activitiesList.length === 0 ? (
             <p>Как только отметите урок, здесь появится запись.</p>
           ) : (
             <ul className="timeline">
-              {activities.map((act) => (
+              {activitiesList.map((act) => (
                 <li key={act.id}>
                   <span>
-                    {new Date(act.timestamp).toLocaleTimeString('ru-RU', {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                    {act.timestamp
+                      ? new Date(act.timestamp).toLocaleTimeString('ru-RU', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })
+                      : '--:--'}
                   </span>
                   <p>{act.action}</p>
                 </li>
@@ -333,11 +424,11 @@ export default function DashboardPage() {
               <h2>Достижения</h2>
             </div>
           </div>
-          {achievements.length === 0 ? (
+          {achievementsList.length === 0 ? (
             <p>Получайте бейджи, завершая уроки и курсы.</p>
           ) : (
             <ul className="list">
-              {achievements.map((ach) => (
+              {achievementsList.map((ach) => (
                 <li key={ach.id} className="achievement">
                   <span className={`badge ${ach.awarded ? 'badge--success' : ''}`}>
                     {ach.awarded ? 'Получено' : 'В процессе'}
@@ -359,11 +450,11 @@ export default function DashboardPage() {
               <h2>Рекомендации</h2>
             </div>
           </div>
-          {recommended.length === 0 ? (
+          {recommendedList.length === 0 ? (
             <p>Как только вы завершите текущий курс, мы предложим новые темы.</p>
           ) : (
             <ul className="list list--gap">
-              {recommended.map((course) => (
+              {recommendedList.map((course) => (
                 <li key={course.id} className="card card--inline">
                   <div>
                     <h3>{course.title}</h3>
