@@ -11,7 +11,7 @@ export default function AdminPage() {
         const resp = await api.get('/courses/admin/progress/');
         setRecords(resp.data);
       } catch (err) {
-        setError('У вас нет прав для просмотра админ-панели.');
+        setError('Не удалось загрузить данные из панели наставника.');
       }
     }
     fetchData();
@@ -23,7 +23,7 @@ export default function AdminPage() {
         <header className="page-header">
           <div>
             <p className="eyebrow">Панель наставника</p>
-            <h1>Доступ ограничен</h1>
+            <h1>Нет доступа</h1>
             <p className="muted">{error}</p>
           </div>
         </header>
@@ -36,15 +36,15 @@ export default function AdminPage() {
       <header className="page-header">
         <div>
           <p className="eyebrow">Панель наставника</p>
-          <h1>Прогресс команды</h1>
+          <h1>Прогресс сотрудников</h1>
           <p className="muted">
-            Просматривайте, сколько уроков прошли сотрудники, чтобы вовремя помогать им в обучении.
+            Следите, кто завершает адаптацию и кому нужна помощь по материалам.
           </p>
         </div>
       </header>
       <section className="card">
         {records.length === 0 ? (
-          <p>Записей пока нет.</p>
+          <p>Данные ещё не появились.</p>
         ) : (
           <div className="table-wrapper">
             <table className="table">

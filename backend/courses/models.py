@@ -31,15 +31,33 @@ class Course(models.Model):
         return self.lessons.count()
 
 
+class Module(models.Model):
+    """Logical section (module/sprint) inside a course."""
+
+    course = models.ForeignKey(Course, related_name='modules', on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    description = models.TextField(blank=True)
+    order = models.PositiveIntegerField(default=0)
+    target_minutes = models.PositiveIntegerField(default=30)
+
+    class Meta:
+        ordering = ['order', 'id']
+
+    def __str__(self) -> str:
+        return f"{self.course.title} - {self.title}"
+
+
 class Lesson(models.Model):
     """Represents a lesson within a course."""
 
     course = models.ForeignKey(Course, related_name='lessons', on_delete=models.CASCADE)
+    module = models.ForeignKey(Module, related_name='lessons', on_delete=models.SET_NULL, null=True, blank=True)
     title = models.CharField(max_length=255)
     content = models.TextField(blank=True)
     video_url = models.URLField(blank=True)
     image_url = models.URLField(blank=True)
     order = models.PositiveIntegerField(default=0)
+    estimated_minutes = models.PositiveIntegerField(default=10)
 
     class Meta:
         ordering = ['order', 'id']
@@ -58,6 +76,11 @@ class Progress(models.Model):
     course = models.ForeignKey(Course, on_delete=models.CASCADE, related_name='progress_records')
     completed_lessons = models.ManyToManyField(Lesson, blank=True, related_name='completed_by')
     updated_at = models.DateTimeField(auto_now=True)
+    daily_goal_minutes = models.PositiveIntegerField(default=10)
+    daily_minutes_today = models.PositiveIntegerField(default=0)
+    daily_streak = models.PositiveIntegerField(default=0)
+    last_progress_date = models.DateField(null=True, blank=True)
+    last_goal_met_date = models.DateField(null=True, blank=True)
 
     class Meta:
         unique_together = ('user', 'course')
@@ -76,7 +99,7 @@ class Progress(models.Model):
 class CourseReview(models.Model):
     """
     Represents a user's review and rating of a course. Each user can leave
-    exactly one review per course. Ratings are positive integers (1–5).
+    exactly one review per course. Ratings are positive integers (1-5).
     """
 
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='course_reviews')

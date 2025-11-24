@@ -2,6 +2,7 @@ from django.contrib import admin
 
 from .models import (
     Course,
+    Module,
     Lesson,
     Progress,
     IntegrationTask,
@@ -26,12 +27,19 @@ class LessonInline(admin.TabularInline):
     ordering = ('order',)
 
 
+class ModuleInline(admin.TabularInline):
+    model = Module
+    extra = 0
+    fields = ('title', 'order', 'target_minutes')
+    ordering = ('order',)
+
+
 @admin.register(Course)
 class CourseAdmin(admin.ModelAdmin):
     list_display = ('title', 'role', 'created_at', 'total_lessons')
     search_fields = ('title', 'description')
     list_filter = ('role',)
-    inlines = [LessonInline]
+    inlines = [ModuleInline, LessonInline]
 
 
 @admin.register(Progress)

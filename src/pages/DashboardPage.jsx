@@ -1,15 +1,30 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api';
 import ProgressBar from '../components/ProgressBar';
 import Loader from '../components/Loader';
 
 const avatarPresets = {
-  robot: { label: 'Робот', emoji: '🤖', color: '#9b8bff' },
-  astronaut: { label: 'Астронавт', emoji: '👩‍🚀', color: '#5fa0ff' },
-  worker: { label: 'Сотрудник', emoji: '👷‍♂️', color: '#f6b756' },
-  manager: { label: 'Менеджер', emoji: '👔', color: '#47b07d' },
-  seller: { label: 'Продавец', emoji: '🛒', color: '#ff8f70' },
+  robot: { label: 'Робот', emoji: 'RB', color: '#9b8bff' },
+  astronaut: { label: 'Астронавт', emoji: 'AS', color: '#5fa0ff' },
+  worker: { label: 'Сотрудник', emoji: 'ST', color: '#f6b756' },
+  manager: { label: 'Менеджер', emoji: 'MG', color: '#47b07d' },
+  seller: { label: 'Продавец', emoji: 'SL', color: '#ff8f70' },
+};
+
+const departmentLabels = {
+  welder: 'Сварщик',
+  manager: 'Менеджер',
+  seller: 'Продавец',
+  student: 'Ученик',
+};
+
+const getDepartmentLabel = (value) => {
+  if (!value) {
+    return 'Ученик';
+  }
+  const normalized = value.toLowerCase();
+  return departmentLabels[normalized] || value;
 };
 
 export default function DashboardPage() {
@@ -21,6 +36,29 @@ export default function DashboardPage() {
   const [recommended, setRecommended] = useState([]);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const dailySummary = useMemo(() => {
+    if (!progresses.length) {
+      return null;
+    }
+    let remainingMinutes = 0;
+    let completedGoals = 0;
+    let longestStreak = 0;
+    progresses.forEach((record) => {
+      const remaining = Math.max(record.minutes_remaining ?? record.daily_goal_minutes ?? 0, 0);
+      remainingMinutes += remaining;
+      if (remaining === 0) {
+        completedGoals += 1;
+      }
+      longestStreak = Math.max(longestStreak, record.daily_streak || 0);
+    });
+    return {
+      remainingMinutes,
+      completedGoals,
+      totalCourses: progresses.length,
+      longestStreak,
+    };
+  }, [progresses]);
 
   useEffect(() => {
     let active = true;
@@ -131,7 +169,7 @@ export default function DashboardPage() {
               <p className="eyebrow">Ваш профиль</p>
               <h2>{profileName}</h2>
               <p className="muted">
-                {profile.is_staff ? 'Администратор' : profile.profile?.department || 'Сотрудник'} •
+                {profile.is_staff ? 'Администратор' : getDepartmentLabel(profile.profile?.department)} •
                 Логин: {profile.username}
               </p>
             </div>
@@ -172,21 +210,41 @@ export default function DashboardPage() {
             Вы ещё не начали занятия. <Link to="/courses">Выберите первый курс</Link>.
           </p>
         ) : (
-          <div className="list list--gap">
-            {progresses.map((p) => (
-              <div key={p.id} className="card card--inline">
-                <div>
-                  <h3>{p.course.title}</h3>
-                  <p className="muted">{p.course.description?.slice(0, 90)}</p>
-                  <ProgressBar progress={p.progress} />
-                  <p className="muted">{p.progress.toFixed(0)}% завершено</p>
-                </div>
-                <Link className="btn btn--secondary" to={`/courses/${p.course.id}`}>
-                  Продолжить
-                </Link>
+          <>
+            {dailySummary && (
+              <div className="info-banner" style={{ marginBottom: '1rem' }}>
+                <strong>Ежедневная цель:</strong>{' '}
+                {dailySummary.completedGoals === dailySummary.totalCourses
+                  ? 'Все цели на сегодня закрыты.'
+                  : `Осталось ${dailySummary.remainingMinutes} мин по активным курсам.`}{' '}
+                Серия: {dailySummary.longestStreak} д.
               </div>
-            ))}
-          </div>
+            )}
+            <div className="list list--gap">
+              {progresses.map((p) => {
+                const remaining = Math.max(p.minutes_remaining ?? p.daily_goal_minutes ?? 0, 0);
+                return (
+                  <div key={p.id} className="card card--inline">
+                    <div>
+                      <h3>{p.course.title}</h3>
+                      <p className="muted">{p.course.description?.slice(0, 90)}</p>
+                      <ProgressBar progress={p.progress} />
+                      <p className="muted">
+                        {p.progress.toFixed(0)}% завершено •{' '}
+                        {remaining === 0
+                          ? 'Цель на сегодня выполнена'
+                          : `Осталось ${remaining} мин`}{' '}
+                        • Серия {p.daily_streak || 0} д.
+                      </p>
+                    </div>
+                    <Link className="btn btn--secondary" to={`/courses/${p.course.id}`}>
+                      Продолжить
+                    </Link>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
         {isStaff && (
           <div className="info-banner">
@@ -304,28 +362,15 @@ export default function DashboardPage() {
           ) : (
             <ul className="list list--gap">
               {recommended.map((course) => (
-                <li key={course.id} className="card course-card">
-                  <div className="recommended-card__media">
-                    {course.image_url ? (
-                      <img src={course.image_url} alt={course.title} />
-                    ) : (
-                      <div className="course-card__placeholder">
-                        <span role="img" aria-label="course">
-                          💡
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="course-card__body">
+                <li key={course.id} className="card card--inline">
+                  <div>
                     <h3>{course.title}</h3>
                     <p className="muted">{course.description}</p>
                     <span className="tag tag--ghost">{course.role}</span>
                   </div>
-                  <div className="course-card__actions">
-                    <Link className="btn btn--secondary" to={`/courses/${course.id}`}>
-                      Открыть
-                    </Link>
-                  </div>
+                  <Link className="btn btn--secondary" to={`/courses/${course.id}`}>
+                    Открыть
+                  </Link>
                 </li>
               ))}
             </ul>

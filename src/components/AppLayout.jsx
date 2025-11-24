@@ -18,6 +18,21 @@ const avatarPresets = {
   seller: { label: 'Продавец', emoji: '🛒', color: '#ff8f70' },
 };
 
+const departmentLabels = {
+  welder: 'Сварщик',
+  manager: 'Менеджер',
+  seller: 'Продавец',
+  student: 'Ученик',
+};
+
+const getDepartmentLabel = (value) => {
+  if (!value) {
+    return 'Ученик';
+  }
+  const normalized = value.toLowerCase();
+  return departmentLabels[normalized] || value;
+};
+
 export default function AppLayout({ children }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -56,7 +71,7 @@ export default function AppLayout({ children }) {
     if (sidebarUser.is_staff) {
       return 'Администратор';
     }
-    return sidebarUser.profile?.department || 'Сотрудник';
+    return getDepartmentLabel(sidebarUser.profile?.department);
   }, [sidebarUser]);
 
   const avatar = useMemo(() => {
@@ -76,6 +91,13 @@ export default function AppLayout({ children }) {
     return { emoji: initials || 'IH', color: '#47b07d' };
   }, [sidebarName, sidebarUser]);
 
+  const navLinks = useMemo(() => {
+    return [
+      ...baseLinks,
+      ...(sidebarUser?.is_staff ? [{ to: '/admin/courses/new', label: 'Создать курс' }] : []),
+    ];
+  }, [sidebarUser]);
+
   return (
     <div className="app-shell">
       <aside className="app-shell__sidebar">
@@ -87,12 +109,7 @@ export default function AppLayout({ children }) {
           </div>
         </div>
         <nav className="app-shell__nav">
-          {[
-            ...baseLinks,
-            ...(sidebarUser?.is_staff
-              ? [{ to: '/admin/courses/new', label: 'Создать курс' }]
-              : []),
-          ].map((link) => {
+          {navLinks.map((link) => {
             const isActive =
               location.pathname === link.to ||
               (link.to !== '/' && location.pathname.startsWith(link.to));

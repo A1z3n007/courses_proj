@@ -37,7 +37,7 @@ export default function ProfilePage() {
           profile: profileData,
         });
       } catch (err) {
-        setError('Не удалось загрузить профиль');
+        setError('Не удалось загрузить профиль.');
       } finally {
         setLoading(false);
       }
@@ -64,9 +64,9 @@ export default function ProfilePage() {
     setSuccess('');
     try {
       await api.put('/accounts/profile/', data);
-      setSuccess('Профиль обновлён');
+      setSuccess('Профиль обновлён.');
     } catch (err) {
-      setError('Не удалось сохранить профиль');
+      setError('Не удалось сохранить профиль.');
     }
   };
 
@@ -83,8 +83,8 @@ export default function ProfilePage() {
       <header className="page-header">
         <div>
           <p className="eyebrow">Профиль</p>
-          <h1>Личные данные</h1>
-          <p className="muted">Обновите контакты и информацию для наставника.</p>
+          <h1>Персональные данные</h1>
+          <p className="muted">Заполните контакты, чтобы наставнику было проще помогать.</p>
         </div>
       </header>
       <section className="card">
@@ -121,14 +121,17 @@ export default function ProfilePage() {
           </label>
           <label className="form-field">
             <span>Отдел / роль</span>
-            <input
-              className="input"
-              type="text"
+            <select
+              className="select"
               name="profile.department"
               value={data.profile.department}
               onChange={handleChange}
-              placeholder="Например, Продажи"
-            />
+            >
+              <option value="">Ученик (по умолчанию)</option>
+              <option value="welder">Сварщик</option>
+              <option value="manager">Менеджер</option>
+              <option value="seller">Продавец</option>
+            </select>
           </label>
           <label className="form-field">
             <span>Наставник</span>
@@ -138,7 +141,7 @@ export default function ProfilePage() {
               name="profile.mentor_name"
               value={data.profile.mentor_name}
               onChange={handleChange}
-              placeholder="ФИО наставника"
+              placeholder="Имя и фамилия наставника"
             />
           </label>
           <label className="form-field">
@@ -159,7 +162,7 @@ export default function ProfilePage() {
               name="profile.city"
               value={data.profile.city}
               onChange={handleChange}
-              placeholder="Алматы, Нур-Султан..."
+              placeholder="Например, Алматы"
             />
           </label>
           <label className="form-field">

@@ -9,6 +9,7 @@ from rest_framework import serializers
 
 from .models import (
     Course,
+    Module,
     Lesson,
     Progress,
     CourseReview,
@@ -25,15 +26,38 @@ from django.db.models import Avg
 class LessonSerializer(serializers.ModelSerializer):
     """Serializer for Lesson objects."""
 
+    module = serializers.SerializerMethodField()
+
     class Meta:
         model = Lesson
-        fields = ['id', 'title', 'content', 'video_url', 'image_url', 'order']
+        fields = [
+            'id',
+            'title',
+            'content',
+            'video_url',
+            'image_url',
+            'order',
+            'estimated_minutes',
+            'module',
+        ]
+
+    def get_module(self, obj):
+        if not obj.module:
+            return None
+        return {
+            'id': obj.module.id,
+            'title': obj.module.title,
+            'order': obj.module.order,
+        }
 
 
 class LessonWriteSerializer(serializers.ModelSerializer):
+
+    module_title = serializers.CharField(required=False, allow_blank=True)
+
     class Meta:
         model = Lesson
-        fields = ['title', 'content', 'video_url', 'image_url', 'order']
+        fields = ['title', 'content', 'video_url', 'image_url', 'order', 'estimated_minutes', 'module_title']
 
 
 class CourseSerializer(serializers.ModelSerializer):
@@ -44,9 +68,18 @@ class CourseSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'description', 'role', 'image_url']
 
 
+class ModuleSerializer(serializers.ModelSerializer):
+    lessons = LessonSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Module
+        fields = ['id', 'title', 'description', 'order', 'target_minutes', 'lessons']
+
+
 class CourseDetailSerializer(serializers.ModelSerializer):
     """Serializer for retrieving course details with nested lessons."""
     lessons = LessonSerializer(many=True, read_only=True)
+    modules = ModuleSerializer(many=True, read_only=True)
     average_rating = serializers.SerializerMethodField()
     has_quiz = serializers.SerializerMethodField()
 
@@ -59,6 +92,7 @@ class CourseDetailSerializer(serializers.ModelSerializer):
             'role',
             'image_url',
             'lessons',
+            'modules',
             'average_rating',
             'has_quiz',
         ]
@@ -83,16 +117,27 @@ class ProgressSerializer(serializers.ModelSerializer):
     """
     course = CourseSerializer(read_only=True)
     progress = serializers.SerializerMethodField()
-    completed_lessons = serializers.PrimaryKeyRelatedField(
-        many=True, read_only=True, source='completed_lessons'
-    )
+    completed_lessons = serializers.PrimaryKeyRelatedField(many=True, read_only=True)
+    minutes_remaining = serializers.SerializerMethodField()
 
     class Meta:
         model = Progress
-        fields = ['id', 'course', 'progress', 'completed_lessons']
+        fields = [
+            'id',
+            'course',
+            'progress',
+            'completed_lessons',
+            'daily_goal_minutes',
+            'daily_minutes_today',
+            'daily_streak',
+            'minutes_remaining',
+        ]
 
     def get_progress(self, obj) -> float:
         return obj.progress_percentage()
+
+    def get_minutes_remaining(self, obj) -> int:
+        return max(obj.daily_goal_minutes - obj.daily_minutes_today, 0)
 
 
 class CourseManageSerializer(serializers.ModelSerializer):
@@ -105,14 +150,28 @@ class CourseManageSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         lessons_data = validated_data.pop('lessons', [])
         course = Course.objects.create(**validated_data)
+        modules_by_title = {}
         for index, lesson_data in enumerate(lessons_data, start=1):
+            module_title = (lesson_data.pop('module_title', '') or '').strip()
+            module_obj = None
+            if module_title:
+                if module_title not in modules_by_title:
+                    module_obj = Module.objects.create(
+                        course=course,
+                        title=module_title,
+                        order=len(modules_by_title) + 1,
+                    )
+                    modules_by_title[module_title] = module_obj
+                module_obj = modules_by_title[module_title]
             Lesson.objects.create(
                 course=course,
+                module=module_obj,
                 order=lesson_data.get('order', index),
                 title=lesson_data.get('title', f'Урок {index}'),
                 content=lesson_data.get('content', ''),
                 video_url=lesson_data.get('video_url', ''),
                 image_url=lesson_data.get('image_url', ''),
+                estimated_minutes=lesson_data.get('estimated_minutes', 10),
             )
         return course
 

@@ -9,6 +9,16 @@ const roles = [
   { value: 'seller', label: 'Продавец' },
 ];
 
+const createLesson = (order) => ({
+  title: '',
+  content: '',
+  video_url: '',
+  image_url: '',
+  module_title: '',
+  estimated_minutes: 15,
+  order,
+});
+
 export default function CourseBuilderPage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -18,18 +28,36 @@ export default function CourseBuilderPage() {
     role: 'welder',
     image_url: '',
   });
-  const [lessons, setLessons] = useState([
-    { title: '', content: '', video_url: '', image_url: '', order: 1 },
-  ]);
+  const [lessons, setLessons] = useState([createLesson(1)]);
   const [message, setMessage] = useState({ error: '', success: '' });
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isMounted = true;
     api
       .get('/accounts/profile/')
-      .then((resp) => setProfile(resp.data))
-      .catch(() => setMessage({ error: 'Не удалось проверить права пользователя.', success: '' }))
-      .finally(() => setLoading(false));
+      .then((resp) => {
+        if (isMounted) {
+          setProfile(resp.data);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setMessage({
+            error:
+              'Не удалось проверить права администратора. Обновите страницу или перезайдите в систему.',
+            success: '',
+          });
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setLoading(false);
+        }
+      });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const updateLesson = (index, field, value) => {
@@ -39,10 +67,7 @@ export default function CourseBuilderPage() {
   };
 
   const addLesson = () => {
-    setLessons((prev) => [
-      ...prev,
-      { title: '', content: '', video_url: '', image_url: '', order: prev.length + 1 },
-    ]);
+    setLessons((prev) => [...prev, createLesson(prev.length + 1)]);
   };
 
   const removeLesson = (index) => {
@@ -57,19 +82,25 @@ export default function CourseBuilderPage() {
         ...courseData,
         lessons: lessons.filter((lesson) => lesson.title.trim().length),
       });
-      setMessage({ error: '', success: 'Курс создан! Можно заполнить следующий.' });
+      setMessage({
+        error: '',
+        success: 'Курс опубликован! Посмотрите карточку в каталоге и назначьте его коллегам.',
+      });
       setCourseData({ title: '', description: '', role: 'welder', image_url: '' });
-      setLessons([{ title: '', content: '', video_url: '', image_url: '', order: 1 }]);
+      setLessons([createLesson(1)]);
       navigate('/courses');
     } catch (err) {
-      setMessage({ error: 'Не удалось сохранить курс. Проверьте данные.', success: '' });
+      setMessage({
+        error: 'Не удалось сохранить курс. Проверьте заполнение формы и попробуйте снова.',
+        success: '',
+      });
     }
   };
 
   if (loading) {
     return (
       <div className="page">
-        <Loader label="Проверяем права доступа..." />
+        <Loader label="Проверяем права администратора..." />
       </div>
     );
   }
@@ -78,7 +109,7 @@ export default function CourseBuilderPage() {
     return (
       <div className="page">
         <div className="card">
-          <p>Только администраторы могут создавать курсы.</p>
+          <p>Создание курсов доступно только наставникам и администраторам.</p>
         </div>
       </div>
     );
@@ -88,17 +119,18 @@ export default function CourseBuilderPage() {
     <div className="page page--narrow">
       <header className="page-header">
         <div>
-          <p className="eyebrow">Конструктор курса</p>
+          <p className="eyebrow">Конструктор контента</p>
           <h1>Создание нового курса</h1>
           <p className="muted">
-            Заполните основные данные курса и добавьте уроки с описанием, видео и обложками.
+            Добавьте общие сведения, разбейте программу по модулям и прикрепите видео/презентации —
+            так курс сразу готов к запуску.
           </p>
         </div>
       </header>
       <section className="card">
         <form className="form" onSubmit={handleSubmit}>
           <label className="form-field">
-            <span>Название</span>
+            <span>Название курса</span>
             <input
               className="input"
               value={courseData.title}
@@ -130,7 +162,7 @@ export default function CourseBuilderPage() {
             </select>
           </label>
           <label className="form-field">
-            <span>Ссылка на обложку курса</span>
+            <span>Обложка курса (URL)</span>
             <input
               className="input"
               value={courseData.image_url}
@@ -142,8 +174,8 @@ export default function CourseBuilderPage() {
           <div className="lesson-builder">
             <div className="card__header">
               <div>
-                <p className="eyebrow">Уроки</p>
-                <h2>Структура программы</h2>
+                <p className="eyebrow">Структура</p>
+                <h2>Программа и уроки</h2>
               </div>
               <button type="button" className="btn btn--secondary" onClick={addLesson}>
                 Добавить урок
@@ -154,11 +186,7 @@ export default function CourseBuilderPage() {
                 <div className="lesson-actions">
                   <h3>Урок {index + 1}</h3>
                   {lessons.length > 1 && (
-                    <button
-                      type="button"
-                      className="btn btn--ghost"
-                      onClick={() => removeLesson(index)}
-                    >
+                    <button type="button" className="btn btn--ghost" onClick={() => removeLesson(index)}>
                       Удалить
                     </button>
                   )}
@@ -173,7 +201,26 @@ export default function CourseBuilderPage() {
                   />
                 </label>
                 <label className="form-field">
-                  <span>Описание / конспект</span>
+                  <span>Модуль / спринт</span>
+                  <input
+                    className="input"
+                    value={lesson.module_title}
+                    onChange={(e) => updateLesson(index, 'module_title', e.target.value)}
+                    placeholder="Введение, Практика, Блок тестов..."
+                  />
+                </label>
+                <label className="form-field">
+                  <span>Планируемое время (минут)</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min="5"
+                    value={lesson.estimated_minutes}
+                    onChange={(e) => updateLesson(index, 'estimated_minutes', Number(e.target.value))}
+                  />
+                </label>
+                <label className="form-field">
+                  <span>Краткое содержание / текст</span>
                   <textarea
                     className="input"
                     style={{ minHeight: '100px' }}
@@ -182,7 +229,7 @@ export default function CourseBuilderPage() {
                   />
                 </label>
                 <label className="form-field">
-                  <span>Видео (ссылка на mp4 или YouTube embed)</span>
+                  <span>Видео (mp4 или ссылка на YouTube)</span>
                   <input
                     className="input"
                     value={lesson.video_url}
@@ -191,7 +238,7 @@ export default function CourseBuilderPage() {
                   />
                 </label>
                 <label className="form-field">
-                  <span>Изображение урока</span>
+                  <span>Изображение / превью урока</span>
                   <input
                     className="input"
                     value={lesson.image_url}

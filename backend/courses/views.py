@@ -5,8 +5,10 @@ This module defines endpoints for listing courses, retrieving course
 details with their lessons, viewing user progress across courses, and
 marking lessons as completed or uncompleted.
 """
+from datetime import timedelta
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import generics, permissions, views, status
 from rest_framework.response import Response
 
@@ -52,6 +54,35 @@ def award_achievement(user, code: str, name: str, description: str) -> None:
     )
     # Create UserAchievement link if it doesn't already exist
     UserAchievement.objects.get_or_create(user=user, achievement=achievement)
+
+
+def adjust_daily_goal(progress: Progress, minutes_delta: int) -> None:
+    """Update daily goal tracking when lesson completion changes."""
+    today = timezone.localdate()
+    yesterday = today - timedelta(days=1)
+
+    if progress.last_progress_date != today:
+        # When entering a new day, reset minutes and update streak continuity
+        if progress.last_goal_met_date != yesterday:
+            progress.daily_streak = 0
+        progress.daily_minutes_today = 0
+        progress.last_progress_date = today
+        if progress.last_goal_met_date == today:
+            progress.last_goal_met_date = None
+
+    progress.daily_minutes_today = max(0, progress.daily_minutes_today + minutes_delta)
+
+    if progress.daily_minutes_today >= progress.daily_goal_minutes:
+        if progress.last_goal_met_date != today:
+            if progress.last_goal_met_date == yesterday:
+                progress.daily_streak += 1
+            else:
+                progress.daily_streak = 1
+            progress.last_goal_met_date = today
+    else:
+        if progress.last_goal_met_date == today:
+            progress.last_goal_met_date = None
+            progress.daily_streak = max(progress.daily_streak - 1, 0)
 
 
 class CourseListView(generics.ListAPIView):
@@ -106,6 +137,8 @@ class LessonCompleteView(views.APIView):
         progress, _ = Progress.objects.get_or_create(user=request.user, course=course)
         # Add lesson to completed list
         progress.completed_lessons.add(lesson)
+        adjust_daily_goal(progress, lesson.estimated_minutes)
+        progress.save()
         # Log activity
         ActivityLog.objects.create(
             user=request.user,
@@ -134,6 +167,8 @@ class LessonUncompleteView(views.APIView):
         lesson = get_object_or_404(Lesson, id=lesson_id, course=course)
         progress = get_object_or_404(Progress, user=request.user, course=course)
         progress.completed_lessons.remove(lesson)
+        adjust_daily_goal(progress, -lesson.estimated_minutes)
+        progress.save()
         # Log activity
         ActivityLog.objects.create(
             user=request.user,

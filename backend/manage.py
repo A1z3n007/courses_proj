@@ -1,11 +1,3 @@
-#!/usr/bin/env python
-"""
-Django's command-line utility for administrative tasks.
-This file is a simplified version of the default manage.py generated
-by the Django framework. It sets up the environment so the project can
-be executed via command line. You can use this script to run
-migrations, start the development server, create superusers, etc.
-"""
 import os
 import sys
 
