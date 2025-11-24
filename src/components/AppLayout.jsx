@@ -59,10 +59,31 @@ export default function AppLayout({ children }) {
     navigate('/login');
   };
 
-  const sidebarName = sidebarUser
-    ? [sidebarUser.first_name, sidebarUser.last_name].filter(Boolean).join(' ').trim() ||
-      sidebarUser.username
-    : 'Integration Hub';
+  // Гарантируем, что sidebarName ВСЕГДА строка
+  const sidebarName = useMemo(() => {
+    if (!sidebarUser) {
+      return 'Integration Hub';
+    }
+
+    const fullName = [sidebarUser.first_name, sidebarUser.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+
+    if (fullName) {
+      return fullName;
+    }
+
+    if (sidebarUser.username) {
+      return String(sidebarUser.username);
+    }
+
+    if (sidebarUser.email) {
+      return String(sidebarUser.email);
+    }
+
+    return 'Integration Hub';
+  }, [sidebarUser]);
 
   const userRole = useMemo(() => {
     if (!sidebarUser) {
@@ -78,16 +99,23 @@ export default function AppLayout({ children }) {
     if (!sidebarUser) {
       return { emoji: 'IH', color: '#47b07d' };
     }
+
     const preset = avatarPresets[sidebarUser.profile?.avatar];
     if (preset) {
       return preset;
     }
-    const initials = sidebarName
-      .split(' ')
-      .filter(Boolean)
-      .map((part) => part.charAt(0).toUpperCase())
-      .slice(0, 2)
-      .join('');
+
+    // Доп. защита: если вдруг sidebarName всё равно что-то странное
+    const initials =
+      typeof sidebarName === 'string' && sidebarName.length > 0
+        ? sidebarName
+            .split(' ')
+            .filter(Boolean)
+            .map((part) => part.charAt(0).toUpperCase())
+            .slice(0, 2)
+            .join('')
+        : 'IH';
+
     return { emoji: initials || 'IH', color: '#47b07d' };
   }, [sidebarName, sidebarUser]);
 
