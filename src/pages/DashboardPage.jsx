@@ -38,27 +38,29 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const dailySummary = useMemo(() => {
-    if (!progresses.length) {
-      return null;
-    }
-    let remainingMinutes = 0;
-    let completedGoals = 0;
-    let longestStreak = 0;
-    progresses.forEach((record) => {
-      const remaining = Math.max(record.minutes_remaining ?? record.daily_goal_minutes ?? 0, 0);
-      remainingMinutes += remaining;
-      if (remaining === 0) {
-        completedGoals += 1;
-      }
-      longestStreak = Math.max(longestStreak, record.daily_streak || 0);
-    });
-    return {
-      remainingMinutes,
-      completedGoals,
-      totalCourses: progresses.length,
-      longestStreak,
-    };
-  }, [progresses]);
+  if (!Array.isArray(progresses) || progresses.length === 0) {
+    return null;
+  }
+
+  let remainingMinutes = 0;
+  let completedGoals = 0;
+  let longestStreak = 0;
+
+  progresses.forEach((record) => {
+    const remaining = Math.max(record.minutes_remaining ?? record.daily_goal_minutes ?? 0, 0);
+    remainingMinutes += remaining;
+    if (remaining === 0) completedGoals += 1;
+    longestStreak = Math.max(longestStreak, record.daily_streak || 0);
+  });
+
+  return {
+    remainingMinutes,
+    completedGoals,
+    totalCourses: progresses.length,
+    longestStreak,
+  };
+}, [progresses]);
+
 
   useEffect(() => {
     let active = true;
