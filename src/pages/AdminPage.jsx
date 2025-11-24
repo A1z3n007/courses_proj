@@ -9,14 +9,8 @@ export default function AdminPage() {
     async function fetchData() {
       try {
         const resp = await api.get('/courses/admin/progress/');
-        const data = Array.isArray(resp.data)
-          ? resp.data
-          : Array.isArray(resp.data?.results)
-          ? resp.data.results
-          : [];
-        setRecords(data);
+        setRecords(resp.data);
       } catch (err) {
-        console.error('Failed to load admin progress', err);
         setError('Не удалось загрузить данные из панели наставника.');
       }
     }
@@ -62,19 +56,13 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {records.map((record) => {
-                  const progressValue =
-                    typeof record.progress === 'number'
-                      ? record.progress
-                      : Number(record.progress) || 0;
-                  return (
-                    <tr key={record.id}>
-                      <td>{record.user}</td>
-                      <td>{record.course?.title}</td>
-                      <td>{progressValue.toFixed(0)}%</td>
-                    </tr>
-                  );
-                })}
+                {records.map((record) => (
+                  <tr key={record.id}>
+                    <td>{record.user}</td>
+                    <td>{record.course.title}</td>
+                    <td>{record.progress.toFixed(0)}%</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

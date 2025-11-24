@@ -51,19 +51,15 @@ export default function CourseListPage() {
       api
         .get('/courses/', { params, signal: controller.signal })
         .then((resp) => {
-          if (!isMounted) return;
-          const data = Array.isArray(resp.data)
-            ? resp.data
-            : Array.isArray(resp.data?.results)
-            ? resp.data.results
-            : [];
-          setCourses(data);
+          if (isMounted) {
+            setCourses(resp.data);
+          }
         })
         .catch((err) => {
           if (err?.code === 'ERR_CANCELED') {
             return;
           }
-          console.error('Failed to load courses', err);
+          console.error(err);
         })
         .finally(() => {
           if (isMounted) {
@@ -84,17 +80,11 @@ export default function CourseListPage() {
     api
       .get('/courses/progress/')
       .then((resp) => {
-        if (!isMounted) return;
-        const data = Array.isArray(resp.data)
-          ? resp.data
-          : Array.isArray(resp.data?.results)
-          ? resp.data.results
-          : [];
-        setProgresses(data);
+        if (isMounted) {
+          setProgresses(resp.data);
+        }
       })
-      .catch((err) => {
-        console.error('Failed to load progress list', err);
-      });
+      .catch(() => {});
     return () => {
       isMounted = false;
     };
@@ -102,7 +92,6 @@ export default function CourseListPage() {
 
   const progressByCourse = useMemo(() => {
     const map = new Map();
-    if (!Array.isArray(progresses)) return map;
     progresses.forEach((record) => {
       if (record?.course?.id) {
         map.set(record.course.id, record);
@@ -116,17 +105,14 @@ export default function CourseListPage() {
     if (!record) {
       return 'not_started';
     }
-    const progressValue =
-      typeof record.progress === 'number' ? record.progress : Number(record.progress) || 0;
-    if (progressValue >= 100) {
+    if ((record.progress || 0) >= 100) {
       return 'completed';
     }
     return 'in_progress';
   };
 
   const filteredCourses = useMemo(() => {
-    const list = Array.isArray(courses) ? courses : [];
-    return list.filter((course) => {
+    return courses.filter((course) => {
       if (statusFilter === 'all') {
         return true;
       }
@@ -135,13 +121,10 @@ export default function CourseListPage() {
   }, [courses, statusFilter, progressByCourse]);
 
   const progressSummary = useMemo(() => {
-    if (!Array.isArray(progresses) || progresses.length === 0) {
+    if (!progresses.length) {
       return null;
     }
-    const totalProgress = progresses.reduce(
-      (acc, record) => acc + (typeof record.progress === 'number' ? record.progress : 0),
-      0,
-    );
+    const totalProgress = progresses.reduce((acc, record) => acc + (record.progress || 0), 0);
     const minutesRemaining = progresses.reduce(
       (acc, record) => acc + Math.max(record.minutes_remaining ?? 0, 0),
       0,
@@ -173,7 +156,7 @@ export default function CourseListPage() {
           setDetailsCache((prev) => ({ ...prev, [courseId]: resp.data }));
         })
         .catch((err) => {
-          console.error('Failed to load course details', err);
+          console.error(err);
         })
         .finally(() => {
           setDetailLoading(null);
@@ -200,9 +183,7 @@ export default function CourseListPage() {
               <strong>{module.title}</strong>
               <span>≈ {module.target_minutes} мин</span>
             </div>
-            <p className="muted">
-              {module.description || 'Текст урока появится при редактировании.'}
-            </p>
+            <p className="muted">{module.description || 'Текст урока появится при редактировании.'}</p>
             {module.lessons?.length ? (
               <p className="module-chip__lessons">
                 {module.lessons.length} урок(ов):{' '}
@@ -264,8 +245,7 @@ export default function CourseListPage() {
           <div>
             <ProgressBar progress={progressSummary.averageProgress} />
             <p className="muted">
-              {Array.isArray(progresses) ? progresses.length : 0} активн. курс(ов): держите темп по
-              каждому модулю.
+              {progresses.length} активн. курс(ов): держите темп по каждому модулю.
             </p>
           </div>
         </section>
@@ -312,10 +292,7 @@ export default function CourseListPage() {
           <div className="list list--gap">
             {filteredCourses.map((course) => {
               const record = progressByCourse.get(course.id);
-              const progressValue =
-                typeof record?.progress === 'number'
-                  ? record.progress
-                  : Number(record?.progress) || 0;
+              const progressValue = record?.progress ?? 0;
               const minutesRemaining = record
                 ? record.minutes_remaining ?? record.daily_goal_minutes ?? 0
                 : null;

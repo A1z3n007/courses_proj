@@ -27,34 +27,20 @@ export default function CourseDetailPage() {
   const refreshProgress = async (hasQuizOverride) => {
     try {
       const progressResp = await api.get('/courses/progress/');
-      const list = Array.isArray(progressResp.data)
-        ? progressResp.data
-        : Array.isArray(progressResp.data?.results)
-        ? progressResp.data.results
-        : [];
-      const progressData = list.find((p) => p?.course?.id === Number(id));
+      const progressData = progressResp.data.find((p) => p.course.id === Number(id));
       if (progressData) {
-        const completed = Array.isArray(progressData.completed_lessons)
-          ? progressData.completed_lessons
-          : [];
-        setCompletedLessons(completed);
-        const progressValue =
-          typeof progressData.progress === 'number'
-            ? progressData.progress
-            : Number(progressData.progress) || 0;
-        setProgress(progressValue);
+        setCompletedLessons(progressData.completed_lessons);
+        setProgress(progressData.progress);
         const hasQuiz =
-          typeof hasQuizOverride === 'boolean'
-            ? hasQuizOverride
-            : Boolean(course?.has_quiz);
-        setShowQuizLink(hasQuiz && progressValue >= 100);
+          typeof hasQuizOverride === 'boolean' ? hasQuizOverride : Boolean(course?.has_quiz);
+        setShowQuizLink(hasQuiz && progressData.progress >= 100);
       } else {
         setCompletedLessons([]);
         setProgress(0);
         setShowQuizLink(false);
       }
     } catch (err) {
-      console.error('Failed to refresh progress', err);
+      console.error(err);
     }
   };
 
@@ -65,14 +51,11 @@ export default function CourseDetailPage() {
       try {
         const courseResp = await api.get(`/courses/${id}/`);
         if (!active) return;
-        const data = courseResp.data || null;
-        setCourse(data);
-        const avg =
-          typeof data?.average_rating === 'number' ? data.average_rating : null;
-        setAverageRating(avg);
-        await refreshProgress(data?.has_quiz);
+        setCourse(courseResp.data);
+        setAverageRating(courseResp.data.average_rating);
+        await refreshProgress(courseResp.data.has_quiz);
       } catch (err) {
-        console.error('Failed to load course', err);
+        console.error(err);
       } finally {
         if (active) {
           setLoading(false);
@@ -94,7 +77,7 @@ export default function CourseDetailPage() {
       }
       await refreshProgress();
     } catch (err) {
-      console.error('Failed to toggle lesson', err);
+      console.error(err);
     }
   };
 
@@ -129,8 +112,6 @@ export default function CourseDetailPage() {
       </div>
     );
   }
-
-  const lessons = Array.isArray(course.lessons) ? course.lessons : [];
 
   return (
     <div className="page">
@@ -189,11 +170,7 @@ export default function CourseDetailPage() {
             <p className="eyebrow">Обратная связь</p>
             <h2>Оценка курса</h2>
           </div>
-          {averageRating !== null && (
-            <span className="tag">
-              {Number(averageRating).toFixed(2)} / 5
-            </span>
-          )}
+          {averageRating !== null && <span className="tag">{averageRating.toFixed(2)} / 5</span>}
         </div>
         {averageRating === null && <p>Этот курс ещё никто не оценивал.</p>}
         <form
@@ -210,26 +187,15 @@ export default function CourseDetailPage() {
               setReviewSuccess('Спасибо! Отзыв отправлен.');
               setComment('');
               const resp = await api.get(`/courses/${id}/`);
-              const newAvg =
-                typeof resp.data?.average_rating === 'number'
-                  ? resp.data.average_rating
-                  : null;
-              setAverageRating(newAvg);
+              setAverageRating(resp.data.average_rating);
             } catch (err) {
-              console.error('Failed to send review', err);
-              setReviewError(
-                'Не удалось отправить отзыв. Возможно, вы уже оставляли оценку.',
-              );
+              setReviewError('Не удалось отправить отзыв. Возможно, вы уже оставляли оценку.');
             }
           }}
         >
           <label className="form-field">
             <span>Ваша оценка</span>
-            <select
-              className="select"
-              value={rating}
-              onChange={(e) => setRating(e.target.value)}
-            >
+            <select className="select" value={rating} onChange={(e) => setRating(e.target.value)}>
               {[1, 2, 3, 4, 5].map((n) => (
                 <option key={n} value={n}>
                   {n}
@@ -263,13 +229,10 @@ export default function CourseDetailPage() {
           </div>
         </div>
         <ul className="list list--gap">
-          {lessons.map((lesson) => {
+          {course.lessons.map((lesson) => {
             const isCompleted = completedLessons.includes(lesson.id);
             return (
-              <li
-                key={lesson.id}
-                className={`lesson ${isCompleted ? 'lesson--done' : ''}`}
-              >
+              <li key={lesson.id} className={`lesson ${isCompleted ? 'lesson--done' : ''}`}>
                 <div>
                   <h3>{lesson.title}</h3>
                   <p className="muted">{lesson.content}</p>
@@ -280,10 +243,7 @@ export default function CourseDetailPage() {
                   )}
                   {lesson.video_url && renderVideo(lesson.video_url)}
                 </div>
-                <button
-                  className="btn"
-                  onClick={() => handleToggleLesson(lesson.id, isCompleted)}
-                >
+                <button className="btn" onClick={() => handleToggleLesson(lesson.id, isCompleted)}>
                   {isCompleted ? 'Вернуть в план' : 'Отметить как пройдено'}
                 </button>
               </li>

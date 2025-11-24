@@ -29,7 +29,7 @@ const getDepartmentLabel = (value) => {
   if (!value) {
     return 'Ученик';
   }
-  const normalized = String(value).toLowerCase();
+  const normalized = value.toLowerCase();
   return departmentLabels[normalized] || value;
 };
 
@@ -48,9 +48,7 @@ export default function AppLayout({ children }) {
           setSidebarUser(resp.data);
         }
       })
-      .catch((err) => {
-        console.error('Failed to load sidebar user', err);
-      });
+      .catch(() => {});
     return () => {
       active = false;
     };
@@ -61,31 +59,10 @@ export default function AppLayout({ children }) {
     navigate('/login');
   };
 
-  // Гарантируем, что имя в сайдбаре всегда строка
-  const sidebarName = useMemo(() => {
-    if (!sidebarUser) {
-      return 'Integration Hub';
-    }
-
-    const fullName = [sidebarUser.first_name, sidebarUser.last_name]
-      .filter(Boolean)
-      .join(' ')
-      .trim();
-
-    if (fullName) {
-      return fullName;
-    }
-
-    if (sidebarUser.username) {
-      return String(sidebarUser.username);
-    }
-
-    if (sidebarUser.email) {
-      return String(sidebarUser.email);
-    }
-
-    return 'Integration Hub';
-  }, [sidebarUser]);
+  const sidebarName = sidebarUser
+    ? [sidebarUser.first_name, sidebarUser.last_name].filter(Boolean).join(' ').trim() ||
+      sidebarUser.username
+    : 'Integration Hub';
 
   const userRole = useMemo(() => {
     if (!sidebarUser) {
@@ -105,17 +82,13 @@ export default function AppLayout({ children }) {
     if (preset) {
       return preset;
     }
-
-    const initials =
-      typeof sidebarName === 'string' && sidebarName.length > 0
-        ? sidebarName
-            .split(' ')
-            .filter(Boolean)
-            .map((part) => part.charAt(0).toUpperCase())
-            .slice(0, 2)
-            .join('')
-        : 'IH';
-
+    const initials = (sidebarName || '')
+      .trim()
+      .split(' ')
+      .filter(Boolean)
+      .map((part) => part.charAt(0).toUpperCase())
+      .slice(0, 2)
+      .join('');
     return { emoji: initials || 'IH', color: '#47b07d' };
   }, [sidebarName, sidebarUser]);
 
