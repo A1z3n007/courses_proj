@@ -82,7 +82,8 @@ export default function AppLayout({ children }) {
     if (preset) {
       return preset;
     }
-    const initials = sidebarName
+    const initials = (sidebarName || '')
+      .trim()
       .split(' ')
       .filter(Boolean)
       .map((part) => part.charAt(0).toUpperCase())
